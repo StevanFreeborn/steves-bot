@@ -1,6 +1,6 @@
 namespace StevesBot.Worker.Discord.Events;
 
-internal class DiscordEventConverter : JsonConverter<DiscordEvent>
+internal sealed class DiscordEventConverter : JsonConverter<DiscordEvent>
 {
   private const string OpPropertyName = "op";
 

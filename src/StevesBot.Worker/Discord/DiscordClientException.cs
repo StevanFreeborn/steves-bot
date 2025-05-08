@@ -1,6 +1,6 @@
 namespace StevesBot.Worker.Discord;
 
-internal class DiscordClientException : Exception
+internal sealed class DiscordClientException : Exception
 {
   public DiscordClientException()
   {

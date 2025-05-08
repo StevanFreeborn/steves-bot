@@ -1,12 +1,12 @@
 namespace StevesBot.Worker.Discord.Events;
 
-internal record HelloDiscordEvent : DiscordEvent
+internal sealed record HelloDiscordEvent : DiscordEvent
 {
   [JsonPropertyName("d")]
   public new HelloData? Data { get; init; }
 }
 
-internal record HelloData
+internal sealed record HelloData
 {
   [JsonPropertyName("heartbeat_interval")]
   public int HeartbeatInterval { get; init; }

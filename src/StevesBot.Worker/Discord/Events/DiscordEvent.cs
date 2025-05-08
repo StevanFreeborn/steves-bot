@@ -3,7 +3,7 @@ namespace StevesBot.Worker.Discord.Events;
 internal record DiscordEvent
 {
   [JsonPropertyName("op")]
-  public int Op { get; init; }
+  public int OpCode { get; init; }
 
   [JsonPropertyName("s")]
   public int? Sequence { get; init; }
