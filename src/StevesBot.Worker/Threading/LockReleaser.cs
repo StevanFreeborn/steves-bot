@@ -7,6 +7,8 @@ internal sealed class LockReleaser : IDisposable
 
   public LockReleaser(SemaphoreSlim semaphore)
   {
+    ArgumentNullException.ThrowIfNull(semaphore);
+
     _semaphore = semaphore;
   }
 

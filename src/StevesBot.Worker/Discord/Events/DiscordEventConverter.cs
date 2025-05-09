@@ -12,13 +12,26 @@ internal sealed class DiscordEventConverter : JsonConverter<DiscordEvent>
 
     return op switch
     {
+      DiscordOpCodes.Dispatch => DeserializeDispatchEvent(root, options),
       DiscordOpCodes.Hello => JsonSerializer.Deserialize<HelloDiscordEvent>(root.GetRawText(), options),
+      DiscordOpCodes.HeartbeatAck => JsonSerializer.Deserialize<HeartbeatAckDiscordEvent>(root.GetRawText(), options),
       _ => JsonSerializer.Deserialize<DiscordEvent>(root.GetRawText(), options)
     };
   }
 
   public override void Write(Utf8JsonWriter writer, DiscordEvent value, JsonSerializerOptions options)
   {
-    throw new NotImplementedException();
+    JsonSerializer.Serialize(writer, value, value.GetType(), options);
+  }
+
+  private static DiscordEvent? DeserializeDispatchEvent(JsonElement root, JsonSerializerOptions options)
+  {
+    var type = root.GetProperty("t").GetString();
+
+    return type switch
+    {
+      DiscordEventTypes.Ready => JsonSerializer.Deserialize<ReadyDiscordEvent>(root.GetRawText(), options),
+      _ => JsonSerializer.Deserialize<DiscordEvent>(root.GetRawText(), options),
+    };
   }
 }
