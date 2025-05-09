@@ -1,3 +1,5 @@
+using WebSocket = System.Net.WebSockets.WebSocket;
+
 namespace StevesBot.Worker.Tests.Integration.Infrastructure;
 
 # pragma warning disable CA1001

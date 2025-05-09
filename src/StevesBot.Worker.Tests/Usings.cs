@@ -1,4 +1,5 @@
 global using System.Net.WebSockets;
+global using System.Text;
 
 global using Microsoft.AspNetCore.Builder;
 global using Microsoft.AspNetCore.Hosting;
@@ -11,3 +12,4 @@ global using StevesBot.Worker.Discord;
 global using StevesBot.Worker.Discord.Events;
 global using StevesBot.Worker.Tests.Integration.Infrastructure;
 global using StevesBot.Worker.Threading;
+global using StevesBot.Worker.WebSockets;

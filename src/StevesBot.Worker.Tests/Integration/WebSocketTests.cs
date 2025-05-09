@@ -1,5 +1,3 @@
-using System.Text;
-
 using WebSocket = StevesBot.Worker.WebSockets.WebSocket;
 
 namespace StevesBot.Worker.Tests.Integration;
