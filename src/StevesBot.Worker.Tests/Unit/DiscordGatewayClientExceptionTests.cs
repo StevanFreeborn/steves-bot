@@ -1,24 +1,24 @@
 namespace StevesBot.Worker.Tests.Unit;
 
-public class DiscordClientExceptionTests
+public class DiscordGatewayClientExceptionTests
 {
   [Fact]
   public void Constructor_WhenCalledWithoutParameters_ItShouldCreateInstance()
   {
-    var exception = new DiscordClientException();
+    var exception = new DiscordGatewayClientException();
 
     exception.Should().NotBeNull();
-    exception.Should().BeOfType<DiscordClientException>();
+    exception.Should().BeOfType<DiscordGatewayClientException>();
   }
 
   [Fact]
   public void Constructor_WhenCalledWithMessage_ItShouldCreateInstance()
   {
     var message = "Test message";
-    var exception = new DiscordClientException(message);
+    var exception = new DiscordGatewayClientException(message);
 
     exception.Should().NotBeNull();
-    exception.Should().BeOfType<DiscordClientException>();
+    exception.Should().BeOfType<DiscordGatewayClientException>();
     exception.Message.Should().Be(message);
   }
 
@@ -27,10 +27,10 @@ public class DiscordClientExceptionTests
   {
     var message = "Test message";
     var innerException = new Exception("Inner exception");
-    var exception = new DiscordClientException(message, innerException);
+    var exception = new DiscordGatewayClientException(message, innerException);
 
     exception.Should().NotBeNull();
-    exception.Should().BeOfType<DiscordClientException>();
+    exception.Should().BeOfType<DiscordGatewayClientException>();
     exception.Message.Should().Be(message);
     exception.InnerException.Should().Be(innerException);
   }
