@@ -4,6 +4,8 @@ public class DiscordEventConverterTests
 {
   private readonly JsonSerializerOptions _options = new()
   {
+    ReferenceHandler = ReferenceHandler.IgnoreCycles,
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     Converters =
     {
       new DiscordEventConverter()
@@ -12,36 +14,31 @@ public class DiscordEventConverterTests
   private readonly Type _discordEventType = typeof(DiscordEvent);
   private readonly DiscordEventConverter _converter = new();
 
-  [Fact]
-  public void Read_WhenCalledWithUnknownOpCode_ItShouldReturnDiscordEvent()
+  [Theory]
+  [MemberData(nameof(TestData))]
+  public void Read_WhenCalledWithOpCode_ItShouldReturnDiscordEvent(object data, Type expectedType)
   {
-    var data = new
-    {
-      op = 99,
-      s = null as int?,
-      t = null as string,
-      d = null as object
-    };
-
     var result = Read(data);
 
-    result.Should().BeOfType<DiscordEvent>();
+    result.Should().BeOfType(expectedType);
   }
 
   [Fact]
-  public void Read_WhenCalledWithDispatchOpCodeAndNoType_ItShouldReturnDispatchEvent()
+  public void Write_WhenCalledWithDiscordEvent_ItShouldReturnJson()
   {
-    var data = new
+    var discordEvent = new DiscordEvent
     {
-      op = DiscordOpCodes.Dispatch,
-      s = null as int?,
-      t = null as string,
-      d = null as object
+      OpCode = DiscordOpCodes.Dispatch,
+      Sequence = null,
+      Type = null,
+      Data = null
     };
 
-    var result = Read(data);
+    var result = JsonSerializer.Serialize(discordEvent, _options);
 
-    result.Should().BeOfType<DiscordEvent>();
+    var expectedJson = /*lang=json,strict*/ "{\"op\":0,\"s\":null,\"t\":null,\"d\":null}";
+
+    result.Should().Be(expectedJson);
   }
 
   private DiscordEvent? Read(object data)
@@ -51,4 +48,58 @@ public class DiscordEventConverterTests
     var reader = new Utf8JsonReader(utf8Json);
     return _converter.Read(ref reader, _discordEventType, _options);
   }
+
+  public static TheoryData<object, Type> TestData => new()
+  {
+    {
+      new
+      {
+        op = DiscordOpCodes.Hello,
+        s = null as int?,
+        t = null as string,
+        d = null as object,
+      },
+      typeof(HelloDiscordEvent)
+    },
+    {
+      new
+      {
+        op = DiscordOpCodes.Dispatch,
+        s = null as int?,
+        t = null as string,
+        d = null as object
+      },
+      typeof(DiscordEvent)
+    },
+    {
+      new
+      {
+        op = DiscordOpCodes.Dispatch,
+        s = null as int?,
+        t = DiscordEventTypes.Ready,
+        d = null as object
+      },
+      typeof(ReadyDiscordEvent)
+    },
+    {
+      new
+      {
+        op = DiscordOpCodes.HeartbeatAck,
+        s = null as int?,
+        t = null as string,
+        d = null as object
+      },
+      typeof(HeartbeatAckDiscordEvent)
+    },
+    {
+      new
+      {
+        op = -1,
+        s = null as int?,
+        t = null as string,
+        d = null as object
+      },
+      typeof(DiscordEvent)
+    }
+  };
 }
