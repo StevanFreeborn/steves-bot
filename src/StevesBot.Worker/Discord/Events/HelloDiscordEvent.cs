@@ -3,7 +3,7 @@ namespace StevesBot.Worker.Discord.Events;
 internal sealed record HelloDiscordEvent : DiscordEvent
 {
   [JsonPropertyName("d")]
-  public new HelloData? Data { get; init; }
+  public new HelloData Data { get; init; } = new HelloData();
 }
 
 internal sealed record HelloData
