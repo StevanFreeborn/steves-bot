@@ -2,6 +2,12 @@ namespace StevesBot.Worker.Discord.Events;
 
 internal sealed class DiscordEventConverter : JsonConverter<DiscordEvent>
 {
+  private readonly JsonSerializerOptions _jsonSerializerOptions = new()
+  {
+    ReferenceHandler = ReferenceHandler.IgnoreCycles,
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+  };
+
   private const string OpPropertyName = "op";
 
   public override DiscordEvent? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -15,7 +21,7 @@ internal sealed class DiscordEventConverter : JsonConverter<DiscordEvent>
       DiscordOpCodes.Dispatch => DeserializeDispatchEvent(root, options),
       DiscordOpCodes.Hello => JsonSerializer.Deserialize<HelloDiscordEvent>(root.GetRawText(), options),
       DiscordOpCodes.HeartbeatAck => JsonSerializer.Deserialize<HeartbeatAckDiscordEvent>(root.GetRawText(), options),
-      _ => JsonSerializer.Deserialize<DiscordEvent>(root.GetRawText(), options)
+      _ => JsonSerializer.Deserialize<DiscordEvent>(root.GetRawText(), _jsonSerializerOptions),
     };
   }
 
@@ -24,14 +30,14 @@ internal sealed class DiscordEventConverter : JsonConverter<DiscordEvent>
     JsonSerializer.Serialize(writer, value, value.GetType(), options);
   }
 
-  private static DiscordEvent? DeserializeDispatchEvent(JsonElement root, JsonSerializerOptions options)
+  private DiscordEvent? DeserializeDispatchEvent(JsonElement root, JsonSerializerOptions options)
   {
     var type = root.GetProperty("t").GetString();
 
     return type switch
     {
       DiscordEventTypes.Ready => JsonSerializer.Deserialize<ReadyDiscordEvent>(root.GetRawText(), options),
-      _ => JsonSerializer.Deserialize<DiscordEvent>(root.GetRawText(), options),
+      _ => JsonSerializer.Deserialize<DiscordEvent>(root.GetRawText(), _jsonSerializerOptions),
     };
   }
 }
