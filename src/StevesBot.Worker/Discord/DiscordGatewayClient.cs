@@ -108,8 +108,8 @@ internal class DiscordGatewayClient : IDiscordGatewayClient
 
           if (result.MessageType is WebSocketMessageType.Text)
           {
-# pragma warning disable CA1849
-            memoryStream.Write(messageBuffer, 0, result.Count);
+            await memoryStream.WriteAsync(messageBuffer.AsMemory(0, result.Count), cancellationToken);
+            await memoryStream.FlushAsync(cancellationToken);
           }
 
         } while (result.EndOfMessage is false);
