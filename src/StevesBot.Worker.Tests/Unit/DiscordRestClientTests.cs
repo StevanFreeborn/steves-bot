@@ -1,17 +1,9 @@
-using System.Net;
-
-using Microsoft.Extensions.Logging;
-
-using Moq;
-
-using RichardSzalay.MockHttp;
-
 namespace StevesBot.Worker.Tests.Unit;
 
 public sealed class DiscordRestClientTests : IDisposable
 {
   private const string BaseUrl = "https://discord.com/api/v10";
-  private static string GatewayUrl => $"{BaseUrl}/gateway";
+  private static string GatewayEndpoint => $"{BaseUrl}/gateway";
 
   private readonly Mock<ILogger<DiscordRestClient>> _loggerMock = new();
   private readonly MockHttpMessageHandler _mockHttpMessageHandler;
@@ -29,7 +21,7 @@ public sealed class DiscordRestClientTests : IDisposable
   public async Task GetGatewayUrlAsync_WhenRequestFails_ItShouldThrowException()
   {
     _mockHttpMessageHandler
-      .When(GatewayUrl)
+      .When(GatewayEndpoint)
       .Respond(HttpStatusCode.InternalServerError);
 
     var act = async () => await _discordRestClient.GetGatewayUrlAsync(CancellationToken.None);
@@ -41,7 +33,7 @@ public sealed class DiscordRestClientTests : IDisposable
   public async Task GetGatewayUrlAsync_WhenResponseIsNull_ItShouldThrowException()
   {
     _mockHttpMessageHandler
-      .When(GatewayUrl)
+      .When(GatewayEndpoint)
       .Respond(HttpStatusCode.OK, "application/json", "null");
 
     var act = async () => await _discordRestClient.GetGatewayUrlAsync(CancellationToken.None);
@@ -58,7 +50,7 @@ public sealed class DiscordRestClientTests : IDisposable
     }}";
 
     _mockHttpMessageHandler
-      .When(GatewayUrl)
+      .When(GatewayEndpoint)
       .Respond(HttpStatusCode.OK, "application/json", jsonResponse);
 
     var result = await _discordRestClient.GetGatewayUrlAsync(CancellationToken.None);

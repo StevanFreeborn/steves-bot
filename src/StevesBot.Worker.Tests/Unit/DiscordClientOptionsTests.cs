@@ -1,14 +1,14 @@
 namespace StevesBot.Worker.Tests.Unit;
 
-public class DiscordGatewayClientOptionsTests
+public class DiscordClientOptionsTests
 {
   [Fact]
   public void Constructor_WhenCalledWithoutParameters_ItShouldCreateInstance()
   {
-    var options = new DiscordGatewayClientOptions();
+    var options = new DiscordClientOptions();
 
     options.Should().NotBeNull();
-    options.Should().BeOfType<DiscordGatewayClientOptions>();
+    options.Should().BeOfType<DiscordClientOptions>();
     options.ApiUrl.Should().Be(string.Empty);
     options.AppToken.Should().Be(string.Empty);
     options.Intents.Should().Be(0);
@@ -21,7 +21,7 @@ public class DiscordGatewayClientOptionsTests
     var appToken = "test-token";
     var intents = 123;
 
-    var options = new DiscordGatewayClientOptions
+    var options = new DiscordClientOptions
     {
       ApiUrl = apiUrl,
       AppToken = appToken,
@@ -29,7 +29,7 @@ public class DiscordGatewayClientOptionsTests
     };
 
     options.Should().NotBeNull();
-    options.Should().BeOfType<DiscordGatewayClientOptions>();
+    options.Should().BeOfType<DiscordClientOptions>();
     options.ApiUrl.Should().Be(apiUrl);
     options.AppToken.Should().Be(appToken);
     options.Intents.Should().Be(intents);
