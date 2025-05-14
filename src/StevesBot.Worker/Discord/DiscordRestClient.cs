@@ -1,6 +1,6 @@
 namespace StevesBot.Worker.Discord;
 
-internal class DiscordRestClient : IDiscordRestClient
+internal sealed class DiscordRestClient : IDiscordRestClient
 {
   private readonly ILogger<DiscordRestClient> _logger;
   private readonly HttpClient _httpClient;

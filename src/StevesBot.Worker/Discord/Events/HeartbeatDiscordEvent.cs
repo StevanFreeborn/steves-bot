@@ -1,6 +1,6 @@
 namespace StevesBot.Worker.Discord.Events;
 
-internal record HeartbeatDiscordEvent : DiscordEvent
+internal sealed record HeartbeatDiscordEvent : DiscordEvent
 {
   public HeartbeatDiscordEvent(int? sequence)
   {

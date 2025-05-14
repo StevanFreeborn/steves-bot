@@ -2,7 +2,7 @@ using System.Text;
 
 namespace StevesBot.Worker.Discord;
 
-internal class DiscordGatewayClient : IDiscordGatewayClient
+internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 {
   private readonly DiscordClientOptions _options;
   private readonly IWebSocketFactory _webSocketFactory;
@@ -78,6 +78,12 @@ internal class DiscordGatewayClient : IDiscordGatewayClient
             _logger.LogWarning("WebSocket is not open. Cannot receive messages.");
             return;
           }
+        }
+
+        if (_webSocket?.State is not WebSocketState.Open)
+        {
+          _logger.LogWarning("WebSocket is not open. Cannot receive messages.");
+          return;
         }
 
         // websocket message might be larger than the
@@ -245,13 +251,10 @@ internal class DiscordGatewayClient : IDiscordGatewayClient
 
   private async Task SendJsonAsync(object data, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
+    if (_webSocket?.State is not WebSocketState.Open)
     {
-      if (_webSocket?.State is not WebSocketState.Open)
-      {
-        _logger.LogWarning("WebSocket is not open. Cannot send message.");
-        return;
-      }
+      _logger.LogWarning("WebSocket is not open. Cannot send message.");
+      return;
     }
 
     try
@@ -275,10 +278,20 @@ internal class DiscordGatewayClient : IDiscordGatewayClient
   public void Dispose()
   {
     _heartbeatCts?.Cancel();
+    _linkedCts?.Cancel();
+
+    if (_heartbeatTask is not null && _heartbeatTask.IsCompleted)
+    {
+      _heartbeatTask.Dispose();
+    }
+
+    if (_receiveTask is not null && _receiveTask.IsCompleted)
+    {
+      _receiveTask.Dispose();
+    }
+
     _heartbeatCts?.Dispose();
     _linkedCts?.Dispose();
-    _heartbeatTask?.Dispose();
-    _receiveTask?.Dispose();
     _webSocket?.Dispose();
     _lock.Dispose();
   }

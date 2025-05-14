@@ -107,67 +107,80 @@ public sealed class DiscordGatewayClientTests : IDisposable
 
     var messageQueue = new Queue<(WebSocketReceiveResult, byte[])>();
 
-    var heatbeatInterval = 1000;
+    var heartbeatInterval = 1000;
 
-    var helloEvent = new
+    var helloEventPayload = CreateEventPayload(new
     {
       op = 10,
       d = new
       {
-        heartbeat_interval = heatbeatInterval,
+        heartbeat_interval = heartbeatInterval,
       }
-    };
+    });
 
-    var helloEventJson = JsonSerializer.Serialize(helloEvent);
-    var helloEventBytes = Encoding.UTF8.GetBytes(helloEventJson);
+    messageQueue.Enqueue((
+      new(helloEventPayload.Bytes.Length, WebSocketMessageType.Text, true),
+      helloEventPayload.Bytes
+    ));
 
-    var heartbeatAck = new
-    {
-      op = 11,
-    };
-
-    var heartbeatAckJson = JsonSerializer.Serialize(heartbeatAck);
-    var heartbeatAckBytes = Encoding.UTF8.GetBytes(heartbeatAckJson);
-
-    messageQueue.Enqueue((new WebSocketReceiveResult(helloEventBytes.Length, WebSocketMessageType.Text, true), helloEventBytes));
-    messageQueue.Enqueue((new WebSocketReceiveResult(heartbeatAckBytes.Length, WebSocketMessageType.Text, true), heartbeatAckBytes));
-
-    mockWebSocket
-      .Setup(static x => x.SendAsync(It.IsAny<ArraySegment<byte>>(), It.IsAny<WebSocketMessageType>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-      .Returns(Task.CompletedTask);
-
-    mockWebSocket
-      .Setup(static x => x.ReceiveAsync(It.IsAny<ArraySegment<byte>>(), It.IsAny<CancellationToken>()))
-      .Returns((ArraySegment<byte> buffer, CancellationToken token) =>
-       {
-         if (messageQueue.Count == 0)
-         {
-# pragma warning disable CA2008
-           return Task.Delay(-1, token).ContinueWith(_ => new WebSocketReceiveResult(0, WebSocketMessageType.Text, true), token);
-         }
-
-         var (result, messageBytes) = messageQueue.Dequeue();
-         Array.Copy(messageBytes, 0, buffer.Array!, buffer.Offset, Math.Min(messageBytes.Length, buffer.Count));
-         return Task.FromResult(result);
-       });
+    SetupReceiveMessageSequence(mockWebSocket, messageQueue);
 
     _mockWebSocketFactory
       .Setup(static x => x.Create())
       .Returns(mockWebSocket.Object);
 
-    using var cts = new CancellationTokenSource();
+    var cts = new CancellationTokenSource();
+    await _discordGatewayClient.ConnectAsync(cts.Token);
 
-    await _discordGatewayClient.ConnectAsync(CancellationToken.None);
+    await Task.Delay((int)(heartbeatInterval * 1.5));
+    await cts.CancelAsync();
 
-    await Task.Delay(heatbeatInterval + 30000);
+    var expectedHeartbeatPayload = CreateEventPayload(new HeartbeatDiscordEvent(null));
 
     mockWebSocket.Verify(
-      static x => x.SendAsync(It.IsAny<ArraySegment<byte>>(), It.IsAny<WebSocketMessageType>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+      x => x.SendAsync(
+        It.Is<ArraySegment<byte>>(b => expectedHeartbeatPayload.Bytes.SequenceEqual(b)),
+        It.IsAny<WebSocketMessageType>(),
+        It.IsAny<bool>(),
+        It.IsAny<CancellationToken>()
+      ),
       Times.Once
     );
   }
 
+  private static void SetupReceiveMessageSequence(
+    Mock<IWebSocket> mockWebSocket,
+    Queue<(WebSocketReceiveResult, byte[])> messageQueue
+  )
+  {
+    mockWebSocket
+      .Setup(static x => x.ReceiveAsync(It.IsAny<ArraySegment<byte>>(), It.IsAny<CancellationToken>()))
+      .Returns((ArraySegment<byte> buffer, CancellationToken token) =>
+      {
+        if (messageQueue.Count == 0)
+        {
+          return Task.Delay(-1, token)
+            .ContinueWith(
+              _ => new WebSocketReceiveResult(0, WebSocketMessageType.Text, true),
+              TaskScheduler.Default
+            );
+        }
+
+        var (result, messageBytes) = messageQueue.Dequeue();
+        Array.Copy(messageBytes, 0, buffer.Array!, buffer.Offset, Math.Min(messageBytes.Length, buffer.Count));
+        return Task.FromResult(result);
+      });
+  }
+
+  private static (byte[] Bytes, string Json) CreateEventPayload(object e)
+  {
+    var json = JsonSerializer.Serialize(e);
+    var bytes = Encoding.UTF8.GetBytes(json);
+    return (bytes, json);
+  }
+
   public void Dispose()
   {
+    _discordGatewayClient.Dispose();
   }
 }
