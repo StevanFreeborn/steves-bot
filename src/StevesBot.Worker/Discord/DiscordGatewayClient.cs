@@ -26,8 +26,10 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
   private int _heartbeatInterval;
   private DateTimeOffset _timeLastHeartbeatSent = DateTimeOffset.MinValue;
   private DateTimeOffset _timeLastHeartbeatAcknowledged = DateTimeOffset.MinValue;
+  private CancellationTokenSource? _receiveMessageCts;
+  private CancellationTokenSource? _linkedReceiveMessageCts;
   private CancellationTokenSource? _heartbeatCts;
-  private CancellationTokenSource? _linkedCts;
+  private CancellationTokenSource? _linkedHeartbeatCts;
   private bool _canResume;
   private string _sessionId = string.Empty;
   private string _resumeGatewayUrl = string.Empty;
@@ -51,261 +53,260 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
   {
     await SetCanResumeAsync(false, cancellationToken);
 
-    if (await IsGatewayUrlSetAsync(cancellationToken) is false)
+    if (string.IsNullOrWhiteSpace(_gatewayUrl))
     {
       var gatewayUrl = await _discordRestClient.GetGatewayUrlAsync(cancellationToken);
       await SetGatewayUrlAsync(gatewayUrl, cancellationToken);
     }
 
     await SetWebSocketAsync(_webSocketFactory.Create(), cancellationToken);
-    await ConnectToGatewayAsync(cancellationToken);
+    await ConnectWithGatewayUrlAsync(cancellationToken);
 
     _logger.LogInformation("Connected to Discord Gateway at {GatewayUrl}", _gatewayUrl);
 
-    _ = ReceiveMessagesAsync(cancellationToken);
+    await StartReceiveMessagesAsync(cancellationToken);
   }
 
-  private async Task ReceiveMessagesAsync(CancellationToken cancellationToken)
+  public async Task DisconnectAsync(CancellationToken cancellationToken)
   {
-    try
+    await CancelReceiveMessagesTaskAsync(cancellationToken);
+    await CancelHeartbeatTaskAsync(cancellationToken);
+    await CloseIfOpenAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", cancellationToken);
+  }
+
+  private async Task StartReceiveMessagesAsync(CancellationToken cancellationToken)
+  {
+    await CancelReceiveMessagesTaskAsync(cancellationToken);
+
+    var newReceiveCts = new CancellationTokenSource();
+    var newReceiveLinkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, newReceiveCts.Token);
+
+    await SetReceiveCtsAsync(newReceiveCts, cancellationToken);
+    await SetLinkedReceiveCtsAsync(newReceiveLinkedCts, cancellationToken);
+
+    _ = Task.Run(async () =>
     {
-      var messageBuffer = new byte[8192];
+      _logger.LogInformation("Starting receive messages task.");
 
-      while (cancellationToken.IsCancellationRequested is false)
+      try
       {
-        // websocket message might be larger than the
-        // size of the buffer so we need to loop until
-        // we receive the end of the message and
-        // write the data we receive on each iteration
-        // to the memory stream
-        using var memoryStream = new MemoryStream();
-        WebSocketReceiveResult result;
+        var messageBuffer = new byte[8192];
 
-        do
+        while (_linkedReceiveMessageCts?.IsCancellationRequested is false)
         {
-          result = await ReceiveMessageAsync(new(messageBuffer), cancellationToken);
+          // websocket message might be larger than the
+          // size of the buffer so we need to loop until
+          // we receive the end of the message and
+          // write the data we receive on each iteration
+          // to the memory stream
+          using var memoryStream = new MemoryStream();
+          WebSocketReceiveResult result;
 
-          if (result.MessageType is WebSocketMessageType.Close)
+          do
           {
-            var canResume = result.CloseStatus is not WebSocketCloseStatus.NormalClosure or WebSocketCloseStatus.EndpointUnavailable;
-            await SetCanResumeAsync(canResume, cancellationToken);
-            await CloseAsync(result.CloseStatus ?? WebSocketCloseStatus.NormalClosure, result.CloseStatusDescription, cancellationToken);
-            await ReconnectAsync(cancellationToken);
-            return;
+            result = await ReceiveMessageAsync(new(messageBuffer), _linkedReceiveMessageCts.Token);
+
+            if (result.MessageType is WebSocketMessageType.Close)
+            {
+              // TODO: Handle all possible close codes
+              // reconnect accordingly to documentation
+              var canResume = result.CloseStatus is not WebSocketCloseStatus.NormalClosure or WebSocketCloseStatus.EndpointUnavailable
+                && string.IsNullOrWhiteSpace(_resumeGatewayUrl) is false
+                && string.IsNullOrWhiteSpace(_sessionId) is false;
+
+              await SetCanResumeAsync(canResume, _linkedReceiveMessageCts.Token);
+              await CloseIfOpenAsync(result.CloseStatus ?? WebSocketCloseStatus.NormalClosure, result.CloseStatusDescription, _linkedReceiveMessageCts.Token);
+              _logger.LogInformation("Reconnecting because of close message: {CloseStatus} - {CloseStatusDescription}", result.CloseStatus, result.CloseStatusDescription);
+              await ReconnectAsync(cancellationToken);
+              return;
+            }
+
+            if (result.MessageType is WebSocketMessageType.Text)
+            {
+              await memoryStream.WriteAsync(messageBuffer.AsMemory(0, result.Count), _linkedReceiveMessageCts.Token);
+              await memoryStream.FlushAsync(_linkedReceiveMessageCts.Token);
+            }
+
+          } while (result.EndOfMessage is false);
+
+          memoryStream.Seek(0, SeekOrigin.Begin);
+
+          var e = await JsonSerializer.DeserializeAsync<DiscordEvent>(
+            memoryStream,
+            _jsonSerializerOptions,
+            _linkedReceiveMessageCts.Token
+          );
+
+          if (e is null)
+          {
+            _logger.LogInformation("Received null event.");
+            continue;
           }
 
-          if (result.MessageType is WebSocketMessageType.Text)
-          {
-            await memoryStream.WriteAsync(messageBuffer.AsMemory(0, result.Count), cancellationToken);
-            await memoryStream.FlushAsync(cancellationToken);
-          }
+          await HandleEventAsync(e, _linkedReceiveMessageCts.Token);
+        }
+      }
+      catch (OperationCanceledException ex)
+      {
+        _logger.LogInformation(ex, "Receive messages operation canceled: {Message}", ex.Message);
+      }
+#pragma warning disable CA1031 // Do not catch general exception types
+      catch (Exception ex)
+#pragma warning restore CA1031 // Do not catch general exception types
+      {
+        _logger.LogError(ex, "Unexpected error while receiving messages");
 
-        } while (result.EndOfMessage is false);
+        _logger.LogWarning("Closing connection and invalidating session.");
 
-        memoryStream.Seek(0, SeekOrigin.Begin);
-
-        var e = await JsonSerializer.DeserializeAsync<DiscordEvent>(
-          memoryStream,
-          _jsonSerializerOptions,
-          cancellationToken
+        await CloseIfOpenAsync(
+          WebSocketCloseStatus.NormalClosure,
+          "WebSocket error. Closing connection and invalidating session.",
+          newReceiveLinkedCts.Token
         );
 
-        if (e is null)
-        {
-          _logger.LogInformation("Received null event.");
-          continue;
-        }
-
-        await HandleEventAsync(e, cancellationToken);
-      }
-    }
-    catch (OperationCanceledException ex)
-    {
-      _logger.LogInformation(ex, "Receive messages operation canceled: {Message}", ex.Message);
-    }
-# pragma warning disable CA1031 // Do not catch general exception types
-    catch (Exception ex)
-# pragma warning restore CA1031 // Do not catch general exception types
-    {
-      _logger.LogError(ex, "Unexpected error while receiving messages");
-
-      using (await _lock.LockAsync(cancellationToken))
-      {
-        if (_webSocket?.State is WebSocketState.Open)
-        {
-          await _webSocket.CloseAsync(
-            WebSocketCloseStatus.NormalClosure,
-            "WebSocket error. Closing connection and invalidating session.",
-            cancellationToken
-          );
-        }
-
-        _canResume = false;
+        await SetCanResumeAsync(false, newReceiveLinkedCts.Token);
+        _logger.LogInformation("Reconnecting because of error in receive message task");
         await ReconnectAsync(cancellationToken);
       }
-    }
+    }, newReceiveLinkedCts.Token);
   }
 
   private async Task HandleEventAsync(DiscordEvent e, CancellationToken cancellationToken)
   {
+    // TODO: Handle other events
     await SetSequenceAsync(e.Sequence, cancellationToken);
 
-    if (e is HelloDiscordEvent he)
+    switch (e)
     {
-      await SetHeartbeatIntervalAsync(he.Data.HeartbeatInterval, cancellationToken);
-      await StartHeartbeatAsync(cancellationToken);
-      await IdentifyAsync(cancellationToken);
-
-      _logger.LogInformation("Hello event received. Heartbeat interval: {Interval}", _heartbeatInterval);
-      return;
-    }
-
-    if (e is HeartbeatAckDiscordEvent hae)
-    {
-      await SetHeartbeatAcknowledgedAsync(_timeProvider.GetUtcNow(), cancellationToken);
-      _logger.LogInformation("Heartbeat acknowledged at {Time}", _timeLastHeartbeatAcknowledged);
-      return;
-    }
-
-    if (e is ReadyDiscordEvent re)
-    {
-      await SetSessionIdAsync(re.Data.SessionId, cancellationToken);
-      await SetResumeGatewayUrlAsync(re.Data.ResumeGatewayUrl, cancellationToken);
-
-      _logger.LogInformation("Ready event received. Session ID: {SessionId}", _sessionId);
-      return;
+      case HelloDiscordEvent he:
+        await SetHeartbeatIntervalAsync(he.Data.HeartbeatInterval, cancellationToken);
+        await StartHeartbeatAsync(cancellationToken);
+        await IdentifyAsync(cancellationToken);
+        _logger.LogInformation("Hello event received. Heartbeat interval: {Interval}", he.Data.HeartbeatInterval);
+        break;
+      case HeartbeatAckDiscordEvent:
+        await SetHeartbeatAcknowledgedAsync(_timeProvider.GetUtcNow(), cancellationToken);
+        _logger.LogInformation("Heartbeat acknowledged");
+        break;
+      case ReadyDiscordEvent re:
+        await SetSessionIdAsync(re.Data.SessionId, cancellationToken);
+        await SetResumeGatewayUrlAsync(re.Data.ResumeGatewayUrl, cancellationToken);
+        _logger.LogInformation("Ready event received");
+        break;
+      default:
+        _logger.LogInformation("Received event: {Event}", e.GetType().Name);
+        break;
     }
   }
 
   private async Task StartHeartbeatAsync(CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
+    await CancelHeartbeatTaskAsync(cancellationToken);
+
+    var newHeartbeatCts = new CancellationTokenSource();
+    var newLinkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, newHeartbeatCts.Token);
+
+    await SetHeartbeatCtsAsync(newHeartbeatCts, cancellationToken);
+    await SetLinkedHeartbeatCtsAsync(newLinkedCts, cancellationToken);
+
+    _ = Task.Run(async () =>
     {
-      if (_heartbeatCts is not null)
+      _logger.LogInformation("Starting heartbeat task.");
+
+      while (_linkedHeartbeatCts?.Token.IsCancellationRequested is false)
       {
-        await _heartbeatCts.CancelAsync();
-        _heartbeatCts.Dispose();
-      }
-
-      _heartbeatCts = new CancellationTokenSource();
-      _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _heartbeatCts.Token);
-
-      _ = Task.Run(async () =>
-      {
-        _logger.LogInformation("Starting heartbeat task.");
-
-        while (_linkedCts.Token.IsCancellationRequested is false)
+        try
         {
-          using (await _lock.LockAsync(_linkedCts.Token))
-          {
-            if (_webSocket?.State is not WebSocketState.Open)
-            {
-              _logger.LogWarning("WebSocket is not open. Cannot send heartbeat.");
-              break;
-            }
-          }
+          var heartbeatInterval = CalculateHeartbeatInterval();
 
-          try
-          {
-# pragma warning disable CA5394 // Do not use insecure randomness
-            var jitter = Random.Shared.NextDouble();
-# pragma warning restore CA5394 // Do not use insecure randomness
-            int heartbeatInterval;
+          await Task.Delay(heartbeatInterval, _linkedHeartbeatCts.Token);
 
-            using (await _lock.LockAsync(_linkedCts.Token))
+          if (IsHeartbeatAcknowledged() is false)
+          {
+            if (IsWebSocketOpen())
             {
-              heartbeatInterval = _heartbeatInterval + (int)(jitter * _heartbeatInterval);
+              _logger.LogWarning("Heartbeat not acknowledged. Closing WebSocket.");
+
+              await CloseAsync(
+                WebSocketCloseStatus.ProtocolError,
+                "Heartbeat not acknowledged",
+                _linkedHeartbeatCts.Token
+              );
+
+              await SetCanResumeAsync(true, _linkedHeartbeatCts.Token);
             }
 
-            await Task.Delay(heartbeatInterval, _linkedCts.Token);
-
-            using (await _lock.LockAsync(_linkedCts.Token))
-            {
-              if (_timeLastHeartbeatAcknowledged < _timeLastHeartbeatSent)
-              {
-                if (_webSocket?.State is WebSocketState.Open)
-                {
-                  _logger.LogWarning("Heartbeat not acknowledged. Closing WebSocket.");
-
-                  await _webSocket.CloseAsync(
-                    WebSocketCloseStatus.ProtocolError,
-                    "Heartbeat not acknowledged",
-                    _linkedCts.Token
-                  );
-
-                  _canResume = true;
-                }
-
-                await ReconnectAsync(cancellationToken);
-
-                break;
-              }
-
-              await SendHeartbeatAsync(_linkedCts.Token);
-            }
-
-            _logger.LogInformation("Heartbeat sent at {Time}", _timeLastHeartbeatSent);
+            _logger.LogWarning("Heartbeat not acknowledged. Reconnecting.");
+            await ReconnectAsync(cancellationToken);
+            break;
           }
-          catch (OperationCanceledException ex)
-          {
-            _logger.LogInformation(ex, "Heartbeat task canceled");
-          }
-# pragma warning disable CA1031 // Do not catch general exception types
-          catch (Exception ex)
-# pragma warning restore CA1031 // Do not catch general exception types
-          {
-            _logger.LogError(ex, "Error in heartbeat task: {Message}", ex.Message);
-          }
+
+          await SendHeartbeatAsync(_linkedHeartbeatCts.Token);
+
+          _logger.LogInformation("Heartbeat sent");
         }
-      }, _linkedCts.Token);
-    }
+        catch (OperationCanceledException ex)
+        {
+          _logger.LogInformation(ex, "Heartbeat task canceled");
+        }
+#pragma warning disable CA1031 // Do not catch general exception types
+        catch (Exception ex)
+#pragma warning restore CA1031 // Do not catch general exception types
+        {
+          _logger.LogError(ex, "Error in heartbeat task: {Message}", ex.Message);
+
+          _logger.LogWarning("Closing connection and invalidating session.");
+
+          await CloseIfOpenAsync(
+            WebSocketCloseStatus.NormalClosure,
+            "Heartbeat error. Closing connection and invalidating session.",
+            newLinkedCts.Token
+          );
+
+          _logger.LogInformation("Reconnecting because of error in heartbeat task");
+          await ReconnectAsync(cancellationToken);
+        }
+      }
+    }, newLinkedCts.Token);
   }
 
-  private async Task ReconnectAsync(CancellationToken token)
+  private async Task ReconnectAsync(CancellationToken cancellationToken)
   {
     _webSocket?.Dispose();
-
-    if (_heartbeatCts is not null)
-    {
-      await _heartbeatCts.CancelAsync();
-      _heartbeatCts.Dispose();
-    }
-
-    if (_linkedCts is not null)
-    {
-      await _linkedCts.CancelAsync();
-      _linkedCts.Dispose();
-    }
 
     if (_canResume)
     {
       _logger.LogInformation("Resuming connection to Discord Gateway.");
 
-      _webSocket = _webSocketFactory.Create();
-      var uri = new Uri(_resumeGatewayUrl);
-      await _webSocket.ConnectAsync(uri, token);
-      await SendResumeAsync(token);
-      _ = ReceiveMessagesAsync(token);
-      _ = StartHeartbeatAsync(token);
+      await SetWebSocketAsync(_webSocketFactory.Create(), cancellationToken);
+      await ConnectWithResumeUrlAsync(cancellationToken);
+      await SendResumeAsync(cancellationToken);
+      await StartReceiveMessagesAsync(cancellationToken);
+      await StartHeartbeatAsync(cancellationToken);
       return;
     }
 
     _logger.LogInformation("Reconnecting to Discord Gateway.");
-    await ConnectAsync(token);
+    await ConnectAsync(cancellationToken);
   }
 
   private async Task SendResumeAsync(CancellationToken cancellationToken)
   {
-    if (_lastSequence is null)
-    {
-      throw new InvalidOperationException("Cannot resume without a sequence number.");
-    }
+    ResumeDiscordEvent resume;
 
-    var resume = new ResumeDiscordEvent(
-      _options.AppToken,
-      _sessionId,
-      _lastSequence.Value
-    );
+    using (await _lock.LockAsync(cancellationToken))
+    {
+      if (_lastSequence is null)
+      {
+        throw new DiscordGatewayClientException("Cannot resume without a sequence number.");
+      }
+
+      resume = new ResumeDiscordEvent(
+        _options.AppToken,
+        _sessionId,
+        _lastSequence.Value
+      );
+    }
 
     await SendJsonAsync(resume, cancellationToken);
   }
@@ -329,10 +330,16 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
   private async Task SendJsonAsync(object data, CancellationToken cancellationToken)
   {
-    if (_webSocket?.State is not WebSocketState.Open)
+    using var _ = await _lock.LockAsync(cancellationToken);
+
+    if (_webSocket is null)
     {
-      _logger.LogWarning("WebSocket is not open. Cannot send message.");
-      return;
+      throw new DiscordGatewayClientException("WebSocket is not set. Cannot send heartbeat.");
+    }
+
+    if (_webSocket.State is not WebSocketState.Open)
+    {
+      throw new DiscordGatewayClientException("WebSocket is not open. Cannot send heartbeat.");
     }
 
     try
@@ -353,22 +360,111 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     }
   }
 
+  private bool IsWebSocketOpen()
+  {
+    return _webSocket?.State is WebSocketState.Open;
+  }
+
+  private bool IsHeartbeatAcknowledged()
+  {
+    return _timeLastHeartbeatAcknowledged >= _timeLastHeartbeatSent;
+  }
+
+  private int CalculateHeartbeatInterval()
+  {
+#pragma warning disable CA5394 // Do not use insecure randomness
+    var jitter = Random.Shared.NextDouble();
+#pragma warning restore CA5394 // Do not use insecure randomness
+    return (int)(jitter * _heartbeatInterval);
+  }
+
+  private async Task CancelReceiveMessagesTaskAsync(CancellationToken cancellationToken)
+  {
+    if (_receiveMessageCts is not null)
+    {
+      await _receiveMessageCts.CancelAsync();
+      _receiveMessageCts.Dispose();
+      await SetReceiveCtsAsync(null, cancellationToken);
+    }
+
+    if (_linkedReceiveMessageCts is not null)
+    {
+      await _linkedReceiveMessageCts.CancelAsync();
+      _linkedReceiveMessageCts.Dispose();
+      await SetLinkedReceiveCtsAsync(null, cancellationToken);
+    }
+  }
+
+  private async Task SetLinkedReceiveCtsAsync(CancellationTokenSource? cts, CancellationToken cancellationToken)
+  {
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _linkedReceiveMessageCts = cts;
+  }
+
+  private async Task SetReceiveCtsAsync(CancellationTokenSource? cts, CancellationToken cancellationToken)
+  {
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _receiveMessageCts = cts;
+  }
+
+
+  private async Task CancelHeartbeatTaskAsync(CancellationToken cancellationToken)
+  {
+    if (_heartbeatCts is not null)
+    {
+      await _heartbeatCts.CancelAsync();
+      _heartbeatCts.Dispose();
+      await SetHeartbeatCtsAsync(null, cancellationToken);
+    }
+
+    if (_linkedHeartbeatCts is not null)
+    {
+      await _linkedHeartbeatCts.CancelAsync();
+      _linkedHeartbeatCts.Dispose();
+      await SetLinkedHeartbeatCtsAsync(null, cancellationToken);
+    }
+  }
+
+  private async Task SetLinkedHeartbeatCtsAsync(CancellationTokenSource? cts, CancellationToken cancellationToken)
+  {
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _linkedHeartbeatCts = cts;
+  }
+
+  private async Task SetHeartbeatCtsAsync(CancellationTokenSource? cts, CancellationToken cancellationToken)
+  {
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _heartbeatCts = cts;
+  }
+
+
+  private async Task CloseIfOpenAsync(
+    WebSocketCloseStatus closeStatus,
+    string? statusDescription,
+    CancellationToken cancellationToken
+  )
+  {
+    if (_webSocket?.State is not WebSocketState.Open)
+    {
+      return;
+    }
+
+    await _webSocket.CloseAsync(closeStatus, statusDescription, cancellationToken);
+  }
+
   private async Task CloseAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
+    if (_webSocket is null)
     {
-      if (_webSocket is null)
-      {
-        throw new InvalidOperationException("WebSocket is not set. Cannot close.");
-      }
-
-      if (_webSocket.State is not WebSocketState.Open)
-      {
-        throw new InvalidOperationException("WebSocket is not open. Cannot close.");
-      }
-
-      await _webSocket.CloseAsync(closeStatus, statusDescription, cancellationToken);
+      throw new DiscordGatewayClientException("WebSocket is not set. Cannot close.");
     }
+
+    if (_webSocket.State is not WebSocketState.Open)
+    {
+      throw new DiscordGatewayClientException("WebSocket is not open. Cannot close.");
+    }
+
+    await _webSocket.CloseAsync(closeStatus, statusDescription, cancellationToken);
   }
 
   private async Task<WebSocketReceiveResult> ReceiveMessageAsync(
@@ -376,135 +472,118 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     CancellationToken cancellationToken
   )
   {
-    using (await _lock.LockAsync(cancellationToken))
+    if (_webSocket is null)
     {
-      if (_webSocket is null)
-      {
-        throw new InvalidOperationException("WebSocket is not set. Cannot receive message.");
-      }
-
-      if (_webSocket.State is not WebSocketState.Open)
-      {
-        throw new InvalidOperationException("WebSocket is not open. Cannot receive message.");
-      }
-      var result = await _webSocket.ReceiveAsync(segment, cancellationToken);
-      return result;
+      throw new DiscordGatewayClientException("WebSocket is not set. Cannot receive message.");
     }
+
+    if (_webSocket.State is not WebSocketState.Open)
+    {
+      throw new DiscordGatewayClientException("WebSocket is not open. Cannot receive message.");
+    }
+
+    var result = await _webSocket.ReceiveAsync(segment, cancellationToken);
+    return result;
   }
 
-  private async Task ConnectToGatewayAsync(CancellationToken cancellationToken)
+  private async Task ConnectWithGatewayUrlAsync(CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
+    if (_webSocket is null)
     {
-      if (_webSocket is null)
-      {
-        throw new InvalidOperationException("WebSocket is not set. Cannot connect.");
-      }
-
-      if (_webSocket.State is WebSocketState.Open)
-      {
-        throw new InvalidOperationException("WebSocket is already open. Cannot connect.");
-      }
-
-      await _webSocket.ConnectAsync(new Uri(_gatewayUrl), cancellationToken);
+      throw new DiscordGatewayClientException("WebSocket is not set. Cannot connect.");
     }
+
+    if (_webSocket.State is WebSocketState.Open)
+    {
+      throw new DiscordGatewayClientException("WebSocket is already open. Cannot connect.");
+    }
+
+    await _webSocket.ConnectAsync(new Uri(_gatewayUrl), cancellationToken);
   }
 
-  private async Task<bool> IsGatewayUrlSetAsync(CancellationToken cancellationToken)
+  private async Task ConnectWithResumeUrlAsync(CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
+    if (_webSocket is null)
     {
-      return !string.IsNullOrEmpty(_gatewayUrl);
+      throw new DiscordGatewayClientException("WebSocket is not set. Cannot connect.");
     }
+
+    if (_webSocket.State is WebSocketState.Open)
+    {
+      throw new DiscordGatewayClientException("WebSocket is already open. Cannot connect.");
+    }
+
+    await _webSocket.ConnectAsync(new Uri(_resumeGatewayUrl), cancellationToken);
   }
 
   private async Task SetGatewayUrlAsync(string url, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      _gatewayUrl = url;
-    }
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _gatewayUrl = url;
   }
 
   private async Task SetSequenceAsync(int? sequence, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      _lastSequence = sequence;
-    }
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _lastSequence = sequence;
   }
 
   private async Task SetHeartbeatIntervalAsync(int interval, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      _heartbeatInterval = interval;
-    }
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _heartbeatInterval = interval;
   }
 
   private async Task SetHeartbeatSentAsync(DateTimeOffset time, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      _timeLastHeartbeatSent = time;
-    }
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _timeLastHeartbeatSent = time;
   }
 
   private async Task SetHeartbeatAcknowledgedAsync(DateTimeOffset time, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      _timeLastHeartbeatAcknowledged = time;
-    }
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _timeLastHeartbeatAcknowledged = time;
   }
 
   private async Task SetSessionIdAsync(string sessionId, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      _sessionId = sessionId;
-    }
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _sessionId = sessionId;
   }
 
   private async Task SetResumeGatewayUrlAsync(string url, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      _resumeGatewayUrl = url;
-    }
-  }
-
-  private async Task<bool> IsWebSocketOpenAsync(CancellationToken cancellationToken)
-  {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      return _webSocket?.State is WebSocketState.Open;
-    }
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _resumeGatewayUrl = url;
   }
 
   private async Task SetWebSocketAsync(IWebSocket webSocket, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      _webSocket = webSocket;
-    }
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _webSocket = webSocket;
   }
 
   private async Task SetCanResumeAsync(bool canResume, CancellationToken cancellationToken)
   {
-    using (await _lock.LockAsync(cancellationToken))
-    {
-      _canResume = canResume;
-    }
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _canResume = canResume;
   }
 
   public void Dispose()
   {
     _heartbeatCts?.Cancel();
-    _linkedCts?.Cancel();
+    _linkedHeartbeatCts?.Cancel();
+
+    _receiveMessageCts?.Cancel();
+    _linkedReceiveMessageCts?.Cancel();
 
     _heartbeatCts?.Dispose();
-    _linkedCts?.Dispose();
+    _linkedHeartbeatCts?.Dispose();
+
+    _receiveMessageCts?.Dispose();
+    _linkedReceiveMessageCts?.Dispose();
+
     _webSocket?.Dispose();
     _lock.Dispose();
   }

@@ -7,3 +7,6 @@ global using System.Text.Json.Serialization;
 global using StevesBot.Worker.Discord.Events;
 global using StevesBot.Worker.Threading;
 global using StevesBot.Worker.WebSockets;
+
+global using StevesBot.Worker;
+global using StevesBot.Worker.Discord;

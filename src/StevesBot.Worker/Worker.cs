@@ -1,24 +1,26 @@
+
 namespace StevesBot.Worker;
 
-internal class Worker : BackgroundService
+internal class Worker : IHostedService
 {
   private readonly ILogger<Worker> _logger;
+  private readonly IDiscordGatewayClient _discordGatewayClient;
 
-  public Worker(ILogger<Worker> logger)
+  public Worker(ILogger<Worker> logger, IDiscordGatewayClient discordGatewayClient)
   {
     _logger = logger;
+    _discordGatewayClient = discordGatewayClient;
   }
 
-  protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+  public Task StartAsync(CancellationToken cancellationToken)
   {
-    while (!stoppingToken.IsCancellationRequested)
-    {
-      if (_logger.IsEnabled(LogLevel.Information))
-      {
-        _logger.LogInformation("Worker running at: {Time}", DateTimeOffset.Now);
-      }
+    _logger.LogInformation("Connecting Discord Gateway Client");
+    return _discordGatewayClient.ConnectAsync(cancellationToken);
+  }
 
-      await Task.Delay(1000, stoppingToken);
-    }
+  public Task StopAsync(CancellationToken cancellationToken)
+  {
+    _logger.LogInformation("Disconnecting Discord Gateway Client");
+    return _discordGatewayClient.DisconnectAsync(cancellationToken);
   }
 }

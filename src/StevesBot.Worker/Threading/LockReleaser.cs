@@ -19,7 +19,16 @@ internal sealed class LockReleaser : IDisposable
       return;
     }
 
-    _semaphore.Release();
-    _released = true;
+    try
+    {
+      _semaphore.Release();
+    }
+    catch (ObjectDisposedException)
+    {
+    }
+    finally
+    {
+      _released = true;
+    }
   }
 }

@@ -7,6 +7,7 @@ internal sealed record IdentifyDiscordEvent : DiscordEvent
 
   public IdentifyDiscordEvent(string token, long intents)
   {
+    OpCode = DiscordOpCodes.Identify;
     Data = new IdentifyData
     {
       Token = token,
