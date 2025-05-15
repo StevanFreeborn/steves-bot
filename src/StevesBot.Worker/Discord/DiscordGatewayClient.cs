@@ -4,6 +4,11 @@ namespace StevesBot.Worker.Discord;
 
 internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 {
+  private const string VersionKey = "v";
+  private const string VersionValue = "10";
+  private const string EncodingKey = "encoding";
+  private const string EncodingValue = "json";
+
   private readonly DiscordClientOptions _options;
   private readonly IWebSocketFactory _webSocketFactory;
   private readonly ILogger<DiscordGatewayClient> _logger;
@@ -23,6 +28,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
   private string _gatewayUrl = string.Empty;
   private IWebSocket? _webSocket;
   private int? _lastSequence;
+  private int? _lastDispatchSequence;
   private int _heartbeatInterval;
   private DateTimeOffset _timeLastHeartbeatSent = DateTimeOffset.MinValue;
   private DateTimeOffset _timeLastHeartbeatAcknowledged = DateTimeOffset.MinValue;
@@ -94,11 +100,6 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
         while (_linkedReceiveMessageCts?.IsCancellationRequested is false)
         {
-          // websocket message might be larger than the
-          // size of the buffer so we need to loop until
-          // we receive the end of the message and
-          // write the data we receive on each iteration
-          // to the memory stream
           using var memoryStream = new MemoryStream();
           WebSocketReceiveResult result;
 
@@ -108,16 +109,23 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
             if (result.MessageType is WebSocketMessageType.Close)
             {
-              // TODO: Handle all possible close codes
-              // reconnect accordingly to documentation
-              var canResume = result.CloseStatus is not WebSocketCloseStatus.NormalClosure or WebSocketCloseStatus.EndpointUnavailable
-                && string.IsNullOrWhiteSpace(_resumeGatewayUrl) is false
-                && string.IsNullOrWhiteSpace(_sessionId) is false;
+              if (DiscordCloseCodes.IsReconnectable((int?)result.CloseStatus) is false)
+              {
+                _logger.LogCritical("Received close status indicating we should not attempt reconnection: {CloseStatus}", result.CloseStatus);
+                await DisconnectAsync(cancellationToken);
+                return;
+              }
+
+              var canResume = IsResumableCloseCode(result.CloseStatus);
+              var closeStatus = canResume ? WebSocketCloseStatus.Empty : WebSocketCloseStatus.NormalClosure;
 
               await SetCanResumeAsync(canResume, _linkedReceiveMessageCts.Token);
-              await CloseIfOpenAsync(result.CloseStatus ?? WebSocketCloseStatus.NormalClosure, result.CloseStatusDescription, _linkedReceiveMessageCts.Token);
-              _logger.LogInformation("Reconnecting because of close message: {CloseStatus} - {CloseStatusDescription}", result.CloseStatus, result.CloseStatusDescription);
+              await CloseIfOpenAsync(closeStatus, result.CloseStatusDescription, _linkedReceiveMessageCts.Token);
+
+              _logger.LogWarning("Reconnecting because of close message: {CloseStatus} - {CloseStatusDescription}", result.CloseStatus, result.CloseStatusDescription);
+
               await ReconnectAsync(cancellationToken);
+
               return;
             }
 
@@ -165,7 +173,9 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
         );
 
         await SetCanResumeAsync(false, newReceiveLinkedCts.Token);
-        _logger.LogInformation("Reconnecting because of error in receive message task");
+
+        _logger.LogWarning("Reconnecting because of error in receive message task");
+
         await ReconnectAsync(cancellationToken);
       }
     }, newReceiveLinkedCts.Token);
@@ -182,16 +192,77 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
         await SetHeartbeatIntervalAsync(he.Data.HeartbeatInterval, cancellationToken);
         await StartHeartbeatAsync(cancellationToken);
         await IdentifyAsync(cancellationToken);
-        _logger.LogInformation("Hello event received. Heartbeat interval: {Interval}", he.Data.HeartbeatInterval);
+        _logger.LogInformation("Hello event received");
         break;
       case HeartbeatAckDiscordEvent:
         await SetHeartbeatAcknowledgedAsync(_timeProvider.GetUtcNow(), cancellationToken);
         _logger.LogInformation("Heartbeat acknowledged");
         break;
-      case ReadyDiscordEvent re:
-        await SetSessionIdAsync(re.Data.SessionId, cancellationToken);
-        await SetResumeGatewayUrlAsync(re.Data.ResumeGatewayUrl, cancellationToken);
-        _logger.LogInformation("Ready event received");
+      case HeartbeatDiscordEvent:
+        _logger.LogInformation("Heartbeat request received");
+        await SendHeartbeatAsync(cancellationToken);
+        break;
+      case DispatchDiscordEvent de:
+        await SetDispatchSequenceAsync(e.Sequence, cancellationToken);
+
+        switch (de)
+        {
+          case ReadyDiscordEvent re:
+            await SetSessionIdAsync(re.Data.SessionId, cancellationToken);
+            await SetResumeGatewayUrlAsync(re.Data.ResumeGatewayUrl, cancellationToken);
+            _logger.LogInformation("Ready event received");
+            break;
+          default:
+            _logger.LogInformation("Received dispatch event: {Event}", de.Type ?? "Unknown");
+            break;
+        }
+        break;
+      case ReconnectDiscordEvent:
+        _logger.LogInformation("Reconnect event received");
+
+        _logger.LogWarning("Closing connection without invalidating session.");
+
+        await SetCanResumeAsync(true, cancellationToken);
+
+        await CloseIfOpenAsync(
+          WebSocketCloseStatus.Empty,
+          "Reconnect event received",
+          cancellationToken
+        );
+
+        _logger.LogWarning("Reconnecting because of reconnect event");
+
+        await ReconnectAsync(cancellationToken);
+        break;
+      case InvalidSessionDiscordEvent ise:
+        _logger.LogInformation("Invalid session event received");
+
+        if (ise.Data)
+        {
+          _logger.LogWarning("Session is resumable. Closing connection without invalidating session.");
+
+          await SetCanResumeAsync(true, cancellationToken);
+
+          await CloseIfOpenAsync(
+            WebSocketCloseStatus.Empty,
+            "Invalid session event received",
+            cancellationToken
+          );
+        }
+        else
+        {
+          _logger.LogWarning("Session is not resumable. Closing connection and invalidating session.");
+
+          await SetCanResumeAsync(false, cancellationToken);
+
+          await CloseIfOpenAsync(
+            WebSocketCloseStatus.NormalClosure,
+            "Invalid session event received",
+            cancellationToken
+          );
+        }
+
+        await ReconnectAsync(cancellationToken);
         break;
       default:
         _logger.LogInformation("Received event: {Event}", e.GetType().Name);
@@ -237,7 +308,9 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
             }
 
             _logger.LogWarning("Heartbeat not acknowledged. Reconnecting.");
+
             await ReconnectAsync(cancellationToken);
+
             break;
           }
 
@@ -263,7 +336,8 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
             newLinkedCts.Token
           );
 
-          _logger.LogInformation("Reconnecting because of error in heartbeat task");
+          _logger.LogWarning("Reconnecting because of error in heartbeat task");
+
           await ReconnectAsync(cancellationToken);
         }
       }
@@ -296,7 +370,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
     using (await _lock.LockAsync(cancellationToken))
     {
-      if (_lastSequence is null)
+      if (_lastDispatchSequence is null)
       {
         throw new DiscordGatewayClientException("Cannot resume without a sequence number.");
       }
@@ -304,7 +378,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       resume = new ResumeDiscordEvent(
         _options.AppToken,
         _sessionId,
-        _lastSequence.Value
+        _lastDispatchSequence.Value
       );
     }
 
@@ -358,6 +432,21 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       _logger.LogError(ex, "Failed to send message: {Message}", ex.Message);
       throw new DiscordGatewayClientException("Failed to send message.", ex);
     }
+  }
+
+  private bool IsResumableCloseCode(WebSocketCloseStatus? closeStatus)
+  {
+    if (string.IsNullOrWhiteSpace(_resumeGatewayUrl) || string.IsNullOrWhiteSpace(_sessionId))
+    {
+      return false;
+    }
+
+    if (closeStatus is WebSocketCloseStatus.NormalClosure or WebSocketCloseStatus.EndpointUnavailable)
+    {
+      return false;
+    }
+
+    return true;
   }
 
   private bool IsWebSocketOpen()
@@ -486,22 +575,19 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     return result;
   }
 
-  private async Task ConnectWithGatewayUrlAsync(CancellationToken cancellationToken)
+  private Task ConnectWithGatewayUrlAsync(CancellationToken cancellationToken)
   {
-    if (_webSocket is null)
-    {
-      throw new DiscordGatewayClientException("WebSocket is not set. Cannot connect.");
-    }
-
-    if (_webSocket.State is WebSocketState.Open)
-    {
-      throw new DiscordGatewayClientException("WebSocket is already open. Cannot connect.");
-    }
-
-    await _webSocket.ConnectAsync(new Uri(_gatewayUrl), cancellationToken);
+    var uri = BuildUri(_gatewayUrl);
+    return ConnectWithUriAsync(uri, cancellationToken);
   }
 
-  private async Task ConnectWithResumeUrlAsync(CancellationToken cancellationToken)
+  private Task ConnectWithResumeUrlAsync(CancellationToken cancellationToken)
+  {
+    var uri = BuildUri(_resumeGatewayUrl);
+    return ConnectWithUriAsync(uri, cancellationToken);
+  }
+
+  private async Task ConnectWithUriAsync(Uri uri, CancellationToken cancellationToken)
   {
     if (_webSocket is null)
     {
@@ -513,13 +599,27 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       throw new DiscordGatewayClientException("WebSocket is already open. Cannot connect.");
     }
 
-    await _webSocket.ConnectAsync(new Uri(_resumeGatewayUrl), cancellationToken);
+    await _webSocket.ConnectAsync(uri, cancellationToken);
+  }
+
+  private static Uri BuildUri(string url)
+  {
+    return new UriBuilder(url)
+    {
+      Query = $"{VersionKey}={VersionValue}&{EncodingKey}={EncodingValue}"
+    }.Uri;
   }
 
   private async Task SetGatewayUrlAsync(string url, CancellationToken cancellationToken)
   {
     using var _ = await _lock.LockAsync(cancellationToken);
     _gatewayUrl = url;
+  }
+
+  private async Task SetDispatchSequenceAsync(int? sequence, CancellationToken cancellationToken)
+  {
+    using var _ = await _lock.LockAsync(cancellationToken);
+    _lastDispatchSequence = sequence;
   }
 
   private async Task SetSequenceAsync(int? sequence, CancellationToken cancellationToken)

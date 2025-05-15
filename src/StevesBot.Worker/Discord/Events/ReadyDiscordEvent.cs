@@ -1,6 +1,6 @@
 namespace StevesBot.Worker.Discord.Events;
 
-internal record ReadyDiscordEvent : DiscordEvent
+internal record ReadyDiscordEvent : DispatchDiscordEvent
 {
   [JsonPropertyName("d")]
   public new ReadyData Data { get; init; } = new ReadyData();
