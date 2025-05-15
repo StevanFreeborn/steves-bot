@@ -21,14 +21,15 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
   private string _gatewayUrl = string.Empty;
   private IWebSocket? _webSocket;
-  private Task? _receiveTask;
+  private int? _lastSequence;
+  private int _heartbeatInterval;
   private DateTime _timeLastHeartbeatSent = DateTime.MinValue;
   private DateTime _timeLastHeartbeatAcknowledged = DateTime.MinValue;
   private CancellationTokenSource? _heartbeatCts;
   private CancellationTokenSource? _linkedCts;
-  private Task? _heartbeatTask;
-  // private string _sessionId = string.Empty;
-  // private string _resumeGatewayUrl = string.Empty;
+  private bool _canResume;
+  private string _sessionId = string.Empty;
+  private string _resumeGatewayUrl = string.Empty;
 
   public DiscordGatewayClient(
     DiscordClientOptions options,
@@ -59,7 +60,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
       _logger.LogInformation("Connected to Discord Gateway at {GatewayUrl}", _gatewayUrl);
 
-      _receiveTask = ReceiveMessagesAsync(cancellationToken);
+      _ = ReceiveMessagesAsync(cancellationToken);
     }
   }
 
@@ -156,9 +157,19 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
   private async Task HandleEventAsync(DiscordEvent e, CancellationToken cancellationToken)
   {
+    using (await _lock.LockAsync(cancellationToken))
+    {
+      _lastSequence = e.Sequence;
+    }
+
     if (e is HelloDiscordEvent he)
     {
-      await StartHeartbeatAsync(he, cancellationToken);
+      using (await _lock.LockAsync(cancellationToken))
+      {
+        _heartbeatInterval = he.Data.HeartbeatInterval;
+      }
+
+      await StartHeartbeatAsync(cancellationToken);
       return;
     }
 
@@ -174,7 +185,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     }
   }
 
-  private async Task StartHeartbeatAsync(HelloDiscordEvent helloEvent, CancellationToken cancellationToken)
+  private async Task StartHeartbeatAsync(CancellationToken cancellationToken)
   {
     using (await _lock.LockAsync(cancellationToken))
     {
@@ -187,7 +198,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       _heartbeatCts = new CancellationTokenSource();
       _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _heartbeatCts.Token);
 
-      _heartbeatTask = Task.Run(async () =>
+      _ = Task.Run(async () =>
       {
         _logger.LogInformation("Starting heartbeat task.");
 
@@ -207,7 +218,14 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 # pragma warning disable CA5394 // Do not use insecure randomness
             var jitter = Random.Shared.NextDouble();
 # pragma warning restore CA5394 // Do not use insecure randomness
-            await Task.Delay((int)(helloEvent.Data.HeartbeatInterval + jitter), _linkedCts.Token);
+            int heartbeatInterval;
+
+            using (await _lock.LockAsync(_linkedCts.Token))
+            {
+              heartbeatInterval = _heartbeatInterval + (int)(jitter * _heartbeatInterval);
+            }
+
+            await Task.Delay(heartbeatInterval, _linkedCts.Token);
 
             using (await _lock.LockAsync(_linkedCts.Token))
             {
@@ -216,12 +234,22 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
                 if (_webSocket?.State is WebSocketState.Open)
                 {
                   _logger.LogWarning("Heartbeat not acknowledged. Closing WebSocket.");
-                  await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Heartbeat not acknowledged", CancellationToken.None);
+
+                  await _webSocket.CloseAsync(
+                    WebSocketCloseStatus.ProtocolError,
+                    "Heartbeat not acknowledged",
+                    _linkedCts.Token
+                  );
+
+                  _canResume = true;
                 }
+
+                await ReconnectAsync(_linkedCts.Token);
+
                 break;
               }
 
-              _timeLastHeartbeatSent = await SendHeartbeatAsync(helloEvent.Sequence, _linkedCts.Token);
+              _timeLastHeartbeatSent = await SendHeartbeatAsync(_linkedCts.Token);
             }
 
             _logger.LogInformation("Heartbeat sent at {Time}", _timeLastHeartbeatSent);
@@ -242,9 +270,59 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     }
   }
 
-  private async Task<DateTime> SendHeartbeatAsync(int? sequence, CancellationToken cancellationToken)
+  private async Task ReconnectAsync(CancellationToken token)
   {
-    var heartbeat = new HeartbeatDiscordEvent(sequence);
+    _webSocket?.Dispose();
+
+    if (_heartbeatCts is not null)
+    {
+      await _heartbeatCts.CancelAsync();
+      _heartbeatCts.Dispose();
+    }
+
+    if (_linkedCts is not null)
+    {
+      await _linkedCts.CancelAsync();
+      _linkedCts.Dispose();
+    }
+
+    if (_canResume)
+    {
+      _logger.LogInformation("Resuming connection to Discord Gateway.");
+
+      _canResume = false;
+      _webSocket = _webSocketFactory.Create();
+      var uri = new Uri(_resumeGatewayUrl);
+      await _webSocket.ConnectAsync(uri, token);
+      await SendResumeAsync(token);
+      _ = ReceiveMessagesAsync(token);
+      _ = StartHeartbeatAsync(token);
+      return;
+    }
+
+    _logger.LogInformation("Reconnecting to Discord Gateway.");
+    await ConnectAsync(token);
+  }
+
+  private async Task SendResumeAsync(CancellationToken cancellationToken)
+  {
+    if (_lastSequence is null)
+    {
+      throw new InvalidOperationException("Cannot resume without a sequence number.");
+    }
+
+    var resume = new ResumeDiscordEvent(
+      _options.AppToken,
+      _sessionId,
+      _lastSequence.Value
+    );
+
+    await SendJsonAsync(resume, cancellationToken);
+  }
+
+  private async Task<DateTime> SendHeartbeatAsync(CancellationToken cancellationToken)
+  {
+    var heartbeat = new HeartbeatDiscordEvent(_lastSequence);
     await SendJsonAsync(heartbeat, cancellationToken);
     return DateTime.UtcNow;
   }
@@ -279,16 +357,6 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
   {
     _heartbeatCts?.Cancel();
     _linkedCts?.Cancel();
-
-    if (_heartbeatTask is not null && _heartbeatTask.IsCompleted)
-    {
-      _heartbeatTask.Dispose();
-    }
-
-    if (_receiveTask is not null && _receiveTask.IsCompleted)
-    {
-      _receiveTask.Dispose();
-    }
 
     _heartbeatCts?.Dispose();
     _linkedCts?.Dispose();

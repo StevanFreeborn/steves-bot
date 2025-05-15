@@ -6,7 +6,6 @@ public sealed class DiscordGatewayClientTests : IDisposable
   private readonly Mock<IWebSocketFactory> _mockWebSocketFactory = new();
   private readonly Mock<ILogger<DiscordGatewayClient>> _mockLogger = new();
   private readonly DiscordClientOptions _options = new();
-# pragma warning disable CA2213
   private readonly DiscordGatewayClient _discordGatewayClient;
 
   public DiscordGatewayClientTests()
@@ -17,6 +16,58 @@ public sealed class DiscordGatewayClientTests : IDisposable
       _mockLogger.Object,
       _mockDiscordRestClient.Object
     );
+  }
+
+  [Fact]
+  public void Constructor_WhenCalledAndOptionsIsNull_ItShouldThrowArgumentNullException()
+  {
+    var act = () => new DiscordGatewayClient(
+      null!,
+      _mockWebSocketFactory.Object,
+      _mockLogger.Object,
+      _mockDiscordRestClient.Object
+    );
+
+    act.Should().Throw<ArgumentNullException>();
+  }
+
+  [Fact]
+  public void Constructor_WhenCalledAndWebSocketFactoryIsNull_ItShouldThrowArgumentNullException()
+  {
+    var act = () => new DiscordGatewayClient(
+      _options,
+      null!,
+      _mockLogger.Object,
+      _mockDiscordRestClient.Object
+    );
+
+    act.Should().Throw<ArgumentNullException>();
+  }
+
+  [Fact]
+  public void Constructor_WhenCalledAndLoggerIsNull_ItShouldThrowArgumentNullException()
+  {
+    var act = () => new DiscordGatewayClient(
+      _options,
+      _mockWebSocketFactory.Object,
+      null!,
+      _mockDiscordRestClient.Object
+    );
+
+    act.Should().Throw<ArgumentNullException>();
+  }
+
+  [Fact]
+  public void Constructor_WhenCalledAndDiscordRestClientIsNull_ItShouldThrowArgumentNullException()
+  {
+    var act = () => new DiscordGatewayClient(
+      _options,
+      _mockWebSocketFactory.Object,
+      _mockLogger.Object,
+      null!
+    );
+
+    act.Should().Throw<ArgumentNullException>();
   }
 
   [Fact]
@@ -107,7 +158,7 @@ public sealed class DiscordGatewayClientTests : IDisposable
 
     var messageQueue = new Queue<(WebSocketReceiveResult, byte[])>();
 
-    var heartbeatInterval = 1000;
+    var heartbeatInterval = 100;
 
     var helloEventPayload = CreateEventPayload(new
     {
@@ -145,6 +196,145 @@ public sealed class DiscordGatewayClientTests : IDisposable
         It.IsAny<CancellationToken>()
       ),
       Times.Once
+    );
+  }
+
+  [Fact]
+  public async Task ConnectAsync_WhenCalledAndHeartbeatIsNotAcknowledged_ItShouldDisconnectAndAttemptToResume()
+  {
+    _mockDiscordRestClient
+      .Setup(static x => x.GetGatewayUrlAsync(It.IsAny<CancellationToken>()))
+      .ReturnsAsync("wss://gateway.discord.gg");
+
+    var mockWebSocket = new Mock<IWebSocket>();
+
+    mockWebSocket
+      .Setup(static x => x.State)
+      .Returns(WebSocketState.Open);
+
+    var messageQueue = new Queue<(WebSocketReceiveResult, byte[])>();
+
+    var heartbeatInterval = 100;
+
+    var helloEventPayload = CreateEventPayload(new
+    {
+      op = 10,
+      d = new
+      {
+        heartbeat_interval = heartbeatInterval,
+      }
+    });
+
+    messageQueue.Enqueue((
+      new(helloEventPayload.Bytes.Length, WebSocketMessageType.Text, true),
+      helloEventPayload.Bytes
+    ));
+
+    SetupReceiveMessageSequence(mockWebSocket, messageQueue);
+
+    _mockWebSocketFactory
+      .Setup(static x => x.Create())
+      .Returns(mockWebSocket.Object);
+
+    var cts = new CancellationTokenSource();
+    await _discordGatewayClient.ConnectAsync(cts.Token);
+
+    await Task.Delay((int)(heartbeatInterval * 2.5));
+    await cts.CancelAsync();
+
+    var expectedHeartbeatPayload = CreateEventPayload(new HeartbeatDiscordEvent(null));
+
+    mockWebSocket.Verify(
+      x => x.SendAsync(
+        It.Is<ArraySegment<byte>>(b => expectedHeartbeatPayload.Bytes.SequenceEqual(b)),
+        It.IsAny<WebSocketMessageType>(),
+        It.IsAny<bool>(),
+        It.IsAny<CancellationToken>()
+      ),
+      Times.Once
+    );
+
+    mockWebSocket.Verify(
+      static x => x.CloseAsync(
+        It.Is<WebSocketCloseStatus>(
+          x => x != WebSocketCloseStatus.NormalClosure && x != WebSocketCloseStatus.EndpointUnavailable
+        ),
+        It.IsAny<string>(),
+        It.IsAny<CancellationToken>()
+      ),
+      Times.Once
+    );
+  }
+
+  [Fact]
+  public async Task ConnectAsync_WhenCalledAndHeartbeatNotAcknowlegedAndAlreadyClosed_ItShouldNotDisconnect()
+  {
+    _mockDiscordRestClient
+      .Setup(static x => x.GetGatewayUrlAsync(It.IsAny<CancellationToken>()))
+      .ReturnsAsync("wss://gateway.discord.gg");
+
+    var mockWebSocket = new Mock<IWebSocket>();
+
+    mockWebSocket
+      .SetupSequence(static x => x.State)
+      .Returns(WebSocketState.Open)
+      .Returns(WebSocketState.Open)
+      .Returns(WebSocketState.Open)
+      .Returns(WebSocketState.Open)
+      .Returns(WebSocketState.Open)
+      .Returns(WebSocketState.Open)
+      .Returns(WebSocketState.Open)
+      .Returns(WebSocketState.Closed);
+
+    var messageQueue = new Queue<(WebSocketReceiveResult, byte[])>();
+
+    var heartbeatInterval = 100;
+
+    var helloEventPayload = CreateEventPayload(new
+    {
+      op = 10,
+      d = new
+      {
+        heartbeat_interval = heartbeatInterval,
+      }
+    });
+
+    messageQueue.Enqueue((
+      new(helloEventPayload.Bytes.Length, WebSocketMessageType.Text, true),
+      helloEventPayload.Bytes
+    ));
+
+    SetupReceiveMessageSequence(mockWebSocket, messageQueue);
+
+    _mockWebSocketFactory
+      .Setup(static x => x.Create())
+      .Returns(mockWebSocket.Object);
+
+    var cts = new CancellationTokenSource();
+    await _discordGatewayClient.ConnectAsync(cts.Token);
+
+    await Task.Delay((int)(heartbeatInterval * 2.5));
+    await cts.CancelAsync();
+
+    var expectedHeartbeatPayload = CreateEventPayload(new HeartbeatDiscordEvent(null));
+
+    mockWebSocket.Verify(
+      x => x.SendAsync(
+        It.Is<ArraySegment<byte>>(b => expectedHeartbeatPayload.Bytes.SequenceEqual(b)),
+        It.IsAny<WebSocketMessageType>(),
+        It.IsAny<bool>(),
+        It.IsAny<CancellationToken>()
+      ),
+      Times.Once
+    );
+
+    mockWebSocket.Verify(
+      static x => x.CloseAsync(
+        It.IsAny<WebSocketCloseStatus>(),
+        It.IsAny<string>(),
+        It.IsAny<CancellationToken>()
+      ),
+      Times.Never
     );
   }
 
