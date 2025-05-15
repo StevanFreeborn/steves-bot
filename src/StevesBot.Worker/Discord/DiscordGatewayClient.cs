@@ -117,7 +117,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
               }
 
               var canResume = IsResumableCloseCode(result.CloseStatus);
-              var closeStatus = canResume ? WebSocketCloseStatus.Empty : WebSocketCloseStatus.NormalClosure;
+              var closeStatus = canResume ? WebSocketCloseStatus.MandatoryExtension : WebSocketCloseStatus.NormalClosure;
 
               await SetCanResumeAsync(canResume, _linkedReceiveMessageCts.Token);
               await CloseIfOpenAsync(closeStatus, result.CloseStatusDescription, _linkedReceiveMessageCts.Token);
@@ -225,7 +225,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
         await SetCanResumeAsync(true, cancellationToken);
 
         await CloseIfOpenAsync(
-          WebSocketCloseStatus.Empty,
+          WebSocketCloseStatus.MandatoryExtension,
           "Reconnect event received",
           cancellationToken
         );
@@ -244,7 +244,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
           await SetCanResumeAsync(true, cancellationToken);
 
           await CloseIfOpenAsync(
-            WebSocketCloseStatus.Empty,
+            WebSocketCloseStatus.MandatoryExtension,
             "Invalid session event received",
             cancellationToken
           );
