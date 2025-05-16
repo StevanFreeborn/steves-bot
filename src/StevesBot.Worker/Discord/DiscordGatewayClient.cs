@@ -389,7 +389,18 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
   {
     var identify = new IdentifyDiscordEvent(
       _options.AppToken,
-      _options.Intents
+      DiscordIntents.All,
+      new UpdatePresenceData
+      {
+        Status = PresenceStatus.Online,
+        Activities = [
+          new()
+          {
+            Name = "Helping Stevan",
+            State = "Helping Stevan"
+          }
+      ],
+      }
     );
 
     await SendJsonAsync(identify, cancellationToken);
