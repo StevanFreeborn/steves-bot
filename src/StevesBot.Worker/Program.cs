@@ -25,7 +25,11 @@ builder.Services
   })
   .AddStandardResilienceHandler();
 
+// TODO: Create an extension method that allows adding
+// the discord gateway client and allows me to configure
+// event handlers
 builder.Services.AddSingleton<IDiscordGatewayClient, DiscordGatewayClient>();
+
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

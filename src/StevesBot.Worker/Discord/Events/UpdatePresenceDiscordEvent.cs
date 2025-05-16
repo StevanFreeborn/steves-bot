@@ -36,6 +36,7 @@ internal sealed record UpdatePresenceData
 internal static class PresenceStatus
 {
   public const string Online = "online";
+  public const string Idle = "idle";
 }
 
 internal sealed record Activity

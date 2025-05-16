@@ -14,6 +14,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
   private readonly ILogger<DiscordGatewayClient> _logger;
   private readonly IDiscordRestClient _discordRestClient;
   private readonly TimeProvider _timeProvider;
+  private readonly IServiceScopeFactory _serviceScopeFactory;
   private readonly JsonSerializerOptions _jsonSerializerOptions = new()
   {
     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -24,6 +25,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     },
   };
   private readonly AsyncLock _lock = new();
+  private readonly Dictionary<string, Func<DiscordEvent, IServiceProvider, Task>> _eventHandlers = [];
 
   private string _gatewayUrl = string.Empty;
   private IWebSocket? _webSocket;
@@ -45,7 +47,8 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     IWebSocketFactory webSocketFactory,
     ILogger<DiscordGatewayClient> logger,
     IDiscordRestClient discordRestClient,
-    TimeProvider timeProvider
+    TimeProvider timeProvider,
+    IServiceScopeFactory serviceScopeFactory
   )
   {
     _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -53,6 +56,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     _discordRestClient = discordRestClient ?? throw new ArgumentNullException(nameof(discordRestClient));
     _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+    _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
   }
 
   public async Task ConnectAsync(CancellationToken cancellationToken)
@@ -75,9 +79,52 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
   public async Task DisconnectAsync(CancellationToken cancellationToken)
   {
+    await SendIdleStatusAsync(cancellationToken);
     await CancelReceiveMessagesTaskAsync(cancellationToken);
     await CancelHeartbeatTaskAsync(cancellationToken);
     await CloseIfOpenAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", cancellationToken);
+  }
+
+  public void On(string eventName, Func<DiscordEvent, IServiceProvider, Task> handler)
+  {
+    if (DiscordEventTypes.IsValidEvent(eventName) is false)
+    {
+      throw new ArgumentException($"Invalid event name: {eventName}", nameof(eventName));
+    }
+
+    ArgumentNullException.ThrowIfNull(handler);
+
+    if (_eventHandlers.ContainsKey(eventName) is false)
+    {
+      _eventHandlers[eventName] = handler;
+      return;
+    }
+
+    _eventHandlers[eventName] += handler;
+  }
+
+  public void Off(string eventName, Func<DiscordEvent, IServiceProvider, Task> handler)
+  {
+    if (DiscordEventTypes.IsValidEvent(eventName) is false)
+    {
+      throw new ArgumentException($"Invalid event name: {eventName}", nameof(eventName));
+    }
+
+    ArgumentNullException.ThrowIfNull(handler);
+
+    if (_eventHandlers.TryGetValue(eventName, out var handlers))
+    {
+      handlers -= handler;
+
+      if (handlers is null)
+      {
+        _eventHandlers.Remove(eventName);
+      }
+      else
+      {
+        _eventHandlers[eventName] = handlers;
+      }
+    }
   }
 
   private async Task StartReceiveMessagesAsync(CancellationToken cancellationToken)
@@ -204,6 +251,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
         break;
       case DispatchDiscordEvent de:
         await SetDispatchSequenceAsync(e.Sequence, cancellationToken);
+        var eventType = de.Type ?? "Unknown";
 
         switch (de)
         {
@@ -213,9 +261,30 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
             _logger.LogInformation("Ready event received");
             break;
           default:
-            _logger.LogInformation("Received dispatch event: {Event}", de.Type ?? "Unknown");
+            _logger.LogInformation("Received dispatch event: {Event}", eventType);
             break;
         }
+
+        if (_eventHandlers.TryGetValue(eventType, out var handler))
+        {
+          try
+          {
+            await using var scope = _serviceScopeFactory.CreateAsyncScope();
+            // TODO: Pass cancellation token to handler
+            await handler(de, scope.ServiceProvider);
+          }
+# pragma warning disable CA1031 // Do not catch general exception types
+          catch (Exception ex)
+          {
+            _logger.LogError(ex, "Error handling event: {Event}", eventType);
+          }
+# pragma warning restore CA1031 // Do not catch general exception types
+        }
+        else
+        {
+          _logger.LogInformation("No handler for event: {Event}", eventType);
+        }
+
         break;
       case ReconnectDiscordEvent:
         _logger.LogInformation("Reconnect event received");
@@ -404,6 +473,23 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     );
 
     await SendJsonAsync(identify, cancellationToken);
+  }
+
+  private async Task SendIdleStatusAsync(CancellationToken cancellationToken)
+  {
+    var presence = new UpdatePresenceDiscordEvent(
+      _timeProvider.GetUtcNow().Millisecond,
+      [new Activity
+      {
+        Name = "Taking a break. Stevan's got this.",
+        Type = ActivityType.Custom,
+        State = "Taking a break. Stevan's got this.",
+      }],
+      PresenceStatus.Idle,
+      true
+    );
+
+    await SendJsonAsync(presence, cancellationToken);
   }
 
   private async Task SendHeartbeatAsync(CancellationToken cancellationToken)
