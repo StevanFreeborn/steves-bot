@@ -16,34 +16,32 @@ internal class Worker : IHostedService
   {
     _logger.LogInformation("Connecting Discord Gateway Client");
 
-    // TODO: Provide access to the gateway client
-    // in delegate...don't try to resolve it from the service provider
-    // TODO: Provide .On and .Off method overloads to allow
-    // caller to not need to use discard for unused parameters
-    _discordGatewayClient.On(DiscordEventTypes.MessageCreate, static (discordEvent, sp) =>
+    _discordGatewayClient.On(DiscordEventTypes.MessageCreate, static async (discordEvent, sp, cancellationToken) =>
     {
       var discordRestClient = sp.GetRequiredService<IDiscordRestClient>();
       var logger = sp.GetRequiredService<ILogger<DiscordGatewayClient>>();
 
-      // TODO: When a user join message is received,
-      // we are going to reply to the message with
-      // a welcome greeting
-      // A user join message is type 8
-      // Will need to use REST API to reply to the message
-
-      if (
-        discordEvent is MessageCreateDiscordEvent mcde &&
-        mcde.IsMessageType(DiscordMessageTypes.UserJoin)
-      )
+      if (discordEvent is not MessageCreateDiscordEvent mcde || mcde.IsMessageType(DiscordMessageTypes.UserJoin) == false)
       {
-        logger.LogInformation("Guild Id: {GuildId}", mcde.Data.GuildId);
-        logger.LogInformation("Channel Id: {ChannelId}", mcde.Data.ChannelId);
-        logger.LogInformation("Message Id: {MessageId}", mcde.Data.Id);
-        logger.LogInformation("User Id: {UserId}", mcde.Data.Author.Id);
-        return Task.CompletedTask;
+        return;
       }
 
-      return Task.CompletedTask;
+      logger.LogInformation("Received user join message for user: {UserId}", mcde.Data.Author.Id);
+
+      var request = new CreateMessageRequest(
+        Content: $"Welcome to the server <@{mcde.Data.Author.Id}>! We're glad to have you here.",
+        MessageReference: new(
+          Type: MessageReferenceTypes.Default,
+          MessageId: mcde.Data.Id,
+          ChannelId: mcde.Data.ChannelId,
+          GuildId: mcde.Data.GuildId,
+          FailIfNotExists: false
+        )
+      );
+
+      var message = await discordRestClient.CreateMessageAsync(mcde.Data.ChannelId, request, cancellationToken);
+
+      logger.LogInformation("Created welcome message with Id: {MessageId} for user: {UserId}", message.Id, mcde.Data.Author.Id);
     });
 
     return _discordGatewayClient.ConnectAsync(cancellationToken);

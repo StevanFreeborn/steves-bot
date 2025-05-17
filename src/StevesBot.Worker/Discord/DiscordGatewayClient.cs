@@ -25,7 +25,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     },
   };
   private readonly AsyncLock _lock = new();
-  private readonly Dictionary<string, Func<DiscordEvent, IServiceProvider, Task>> _eventHandlers = [];
+  private readonly Dictionary<string, Func<DiscordEvent, IServiceProvider, CancellationToken, Task>> _eventHandlers = [];
 
   private string _gatewayUrl = string.Empty;
   private IWebSocket? _webSocket;
@@ -85,7 +85,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     await CloseIfOpenAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", cancellationToken);
   }
 
-  public void On(string eventName, Func<DiscordEvent, IServiceProvider, Task> handler)
+  public void On(string eventName, Func<DiscordEvent, IServiceProvider, CancellationToken, Task> handler)
   {
     if (DiscordEventTypes.IsValidEvent(eventName) is false)
     {
@@ -103,7 +103,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     _eventHandlers[eventName] += handler;
   }
 
-  public void Off(string eventName, Func<DiscordEvent, IServiceProvider, Task> handler)
+  public void Off(string eventName, Func<DiscordEvent, IServiceProvider, CancellationToken, Task> handler)
   {
     if (DiscordEventTypes.IsValidEvent(eventName) is false)
     {
@@ -271,7 +271,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
           {
             await using var scope = _serviceScopeFactory.CreateAsyncScope();
             // TODO: Pass cancellation token to handler
-            await handler(de, scope.ServiceProvider);
+            await handler(de, scope.ServiceProvider, cancellationToken);
           }
 # pragma warning disable CA1031 // Do not catch general exception types
           catch (Exception ex)

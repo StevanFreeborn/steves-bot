@@ -1,3 +1,5 @@
+using System.Net.Http.Headers;
+
 using Microsoft.Extensions.Options;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -22,6 +24,7 @@ builder.Services
     var discordOptions = sp.GetRequiredService<DiscordClientOptions>();
     c.BaseAddress = new Uri(discordOptions.ApiUrl);
     c.DefaultRequestHeaders.Authorization = new("Bot", discordOptions.AppToken);
+    c.DefaultRequestHeaders.Add("User-Agent", $"DiscordBot (https://github.com/StevanFreeborn/steves-bot, 0.0.0)");
   })
   .AddStandardResilienceHandler();
 
