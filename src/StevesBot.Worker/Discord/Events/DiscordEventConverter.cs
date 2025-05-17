@@ -36,6 +36,7 @@ internal sealed class DiscordEventConverter : JsonConverter<DiscordEvent>
     return type switch
     {
       DiscordEventTypes.Ready => JsonSerializer.Deserialize<ReadyDiscordEvent>(root.GetRawText(), options),
+      DiscordEventTypes.MessageCreate => JsonSerializer.Deserialize<MessageCreateDiscordEvent>(root.GetRawText(), options),
       _ => JsonSerializer.Deserialize<DispatchDiscordEvent>(root.GetRawText(), modifiedOptions),
     };
   }
