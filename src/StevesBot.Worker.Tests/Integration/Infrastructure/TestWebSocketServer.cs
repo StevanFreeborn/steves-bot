@@ -2,9 +2,7 @@ using WebSocket = System.Net.WebSockets.WebSocket;
 
 namespace StevesBot.Worker.Tests.Integration.Infrastructure;
 
-# pragma warning disable CA1001
-
-public sealed class TestWebSocketServer : IAsyncLifetime
+public sealed class TestWebSocketServer : IAsyncLifetime, IDisposable
 {
   private readonly IWebHost _host;
   private readonly CancellationTokenSource _echoCts = new();
@@ -110,5 +108,10 @@ public sealed class TestWebSocketServer : IAsyncLifetime
     {
       webSocket.Dispose();
     }
+  }
+
+  public void Dispose()
+  {
+    _host.Dispose();
   }
 }

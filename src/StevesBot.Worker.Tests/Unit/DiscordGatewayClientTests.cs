@@ -6,6 +6,7 @@ public sealed class DiscordGatewayClientTests : IDisposable
   private readonly Mock<IWebSocketFactory> _mockWebSocketFactory = new();
   private readonly Mock<ILogger<DiscordGatewayClient>> _mockLogger = new();
   private readonly Mock<TimeProvider> _mockTimeProvider = new();
+  private readonly Mock<IServiceScopeFactory> _mockServiceScopeFactory = new();
   private readonly DiscordClientOptions _options = new();
   private readonly DiscordGatewayClient _discordGatewayClient;
 
@@ -20,7 +21,8 @@ public sealed class DiscordGatewayClientTests : IDisposable
       _mockWebSocketFactory.Object,
       _mockLogger.Object,
       _mockDiscordRestClient.Object,
-      _mockTimeProvider.Object
+      _mockTimeProvider.Object,
+      _mockServiceScopeFactory.Object
     );
   }
 
@@ -32,7 +34,8 @@ public sealed class DiscordGatewayClientTests : IDisposable
       _mockWebSocketFactory.Object,
       _mockLogger.Object,
       _mockDiscordRestClient.Object,
-      _mockTimeProvider.Object
+      _mockTimeProvider.Object,
+      _mockServiceScopeFactory.Object
     );
 
     act.Should().Throw<ArgumentNullException>();
@@ -46,7 +49,8 @@ public sealed class DiscordGatewayClientTests : IDisposable
       null!,
       _mockLogger.Object,
       _mockDiscordRestClient.Object,
-      _mockTimeProvider.Object
+      _mockTimeProvider.Object,
+      _mockServiceScopeFactory.Object
     );
 
     act.Should().Throw<ArgumentNullException>();
@@ -60,7 +64,8 @@ public sealed class DiscordGatewayClientTests : IDisposable
       _mockWebSocketFactory.Object,
       null!,
       _mockDiscordRestClient.Object,
-      _mockTimeProvider.Object
+      _mockTimeProvider.Object,
+      _mockServiceScopeFactory.Object
     );
 
     act.Should().Throw<ArgumentNullException>();
@@ -74,7 +79,8 @@ public sealed class DiscordGatewayClientTests : IDisposable
       _mockWebSocketFactory.Object,
       _mockLogger.Object,
       null!,
-      _mockTimeProvider.Object
+      _mockTimeProvider.Object,
+      _mockServiceScopeFactory.Object
     );
 
     act.Should().Throw<ArgumentNullException>();
@@ -88,6 +94,22 @@ public sealed class DiscordGatewayClientTests : IDisposable
       _mockWebSocketFactory.Object,
       _mockLogger.Object,
       _mockDiscordRestClient.Object,
+      null!,
+      _mockServiceScopeFactory.Object
+    );
+
+    act.Should().Throw<ArgumentNullException>();
+  }
+
+  [Fact]
+  public void Constructor_WhenCalledAndServiceScopeFactoryIsNull_ItShouldThrowArgumentNullException()
+  {
+    var act = () => new DiscordGatewayClient(
+      _options,
+      _mockWebSocketFactory.Object,
+      _mockLogger.Object,
+      _mockDiscordRestClient.Object,
+      _mockTimeProvider.Object,
       null!
     );
 
