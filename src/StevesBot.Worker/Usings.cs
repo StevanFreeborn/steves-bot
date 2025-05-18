@@ -1,12 +1,20 @@
 global using System.Net.Http.Json;
 global using System.Net.WebSockets;
 global using System.Reflection;
+global using System.Text;
 global using System.Text.Json;
 global using System.Text.Json.Serialization;
 
-global using StevesBot.Worker.Discord.Events;
-global using StevesBot.Worker.Threading;
-global using StevesBot.Worker.WebSockets;
+global using Microsoft.Extensions.Options;
 
 global using StevesBot.Worker;
 global using StevesBot.Worker.Discord;
+global using StevesBot.Worker.Discord.Gateway;
+global using StevesBot.Worker.Discord.Gateway.Events;
+global using StevesBot.Worker.Discord.Rest;
+global using StevesBot.Worker.Discord.Rest.Requests;
+global using StevesBot.Worker.Discord.Rest.Responses;
+global using StevesBot.Worker.Discord.Shared;
+global using StevesBot.Worker.Handlers;
+global using StevesBot.Worker.Threading;
+global using StevesBot.Worker.WebSockets;
