@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Text;
-
 namespace StevesBot.Worker.Handlers;
 
 internal static class WelcomeMessageHandler
