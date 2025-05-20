@@ -69,7 +69,7 @@ public class DiscordEventConverterTests
         t = null as string,
         d = null as object
       },
-      typeof(DiscordEvent)
+      typeof(DispatchDiscordEvent)
     },
     {
       new
