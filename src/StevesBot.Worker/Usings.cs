@@ -11,6 +11,7 @@ global using StevesBot.Worker;
 global using StevesBot.Worker.Discord;
 global using StevesBot.Worker.Discord.Gateway;
 global using StevesBot.Worker.Discord.Gateway.Events;
+global using StevesBot.Worker.Discord.Gateway.Events.Data;
 global using StevesBot.Worker.Discord.Rest;
 global using StevesBot.Worker.Discord.Rest.Requests;
 global using StevesBot.Worker.Discord.Rest.Responses;

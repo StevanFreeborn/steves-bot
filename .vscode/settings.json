@@ -1,7 +1,9 @@
 {
   "editor.formatOnSave": true,
-  "dotnet.defaultSolution": "src/StevesBot.sln",
+  "dotnet.defaultSolution": "./src/StevesBot.sln",
   "cSpell.words": [
-    "Steves"
+    "Reconnectable",
+    "Steves",
+    "Szalay"
   ],
 }
