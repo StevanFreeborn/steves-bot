@@ -6,11 +6,11 @@ internal static class WelcomeMessageHandler
   public static async Task HandleAsync(
     DiscordEvent discordEvent,
     IServiceProvider serviceProvider,
-    CancellationToken cancellationToken
+    CancellationToken cancellationToken = default
   )
   {
     var discordRestClient = serviceProvider.GetRequiredService<IDiscordRestClient>();
-    var logger = serviceProvider.GetRequiredService<ILogger<DiscordGatewayClient>>();
+    var logger = serviceProvider.GetRequiredService<ILogger<IDiscordGatewayClient>>();
 
     if (discordEvent is not MessageCreateDiscordEvent mcde || mcde.IsMessageType(DiscordMessageTypes.UserJoin) == false)
     {
@@ -23,7 +23,7 @@ internal static class WelcomeMessageHandler
     var request = new CreateMessageRequest(
       Content: welcomeMessage,
       MessageReference: new(
-        Type: MessageReferenceTypes.Default,
+        Type: DiscordMessageReferenceTypes.Default,
         MessageId: mcde.Data.Id,
         ChannelId: mcde.Data.ChannelId,
         GuildId: mcde.Data.GuildId,

@@ -42,4 +42,19 @@ public class LockReleaserTests
 
     semaphore.CurrentCount.Should().Be(1);
   }
+
+  [Fact]
+  public void Dispose_WhenCalledAndSemaphoreIsAlreadyDisposed_ItShouldNotThrowException()
+  {
+    var act = () =>
+    {
+      var semaphore = new SemaphoreSlim(0, 1);
+      var lockReleaser = new LockReleaser(semaphore);
+
+      semaphore.Dispose();
+      lockReleaser.Dispose();
+    };
+
+    act.Should().NotThrow();
+  }
 }

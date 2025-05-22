@@ -14,7 +14,7 @@ internal sealed class DiscordRestClient : IDiscordRestClient
     _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
   }
 
-  public async Task<string> GetGatewayUrlAsync(CancellationToken cancellationToken)
+  public async Task<string> GetGatewayUrlAsync(CancellationToken cancellationToken = default)
   {
     var gatewayEndpoint = new Uri("gateway", UriKind.Relative);
     var response = await _httpClient.GetAsync(gatewayEndpoint, cancellationToken);
@@ -36,7 +36,7 @@ internal sealed class DiscordRestClient : IDiscordRestClient
     return gatewayResponse.Url;
   }
 
-  public async Task<DiscordMessage> CreateMessageAsync(string channelId, CreateMessageRequest request, CancellationToken cancellationToken)
+  public async Task<DiscordMessage> CreateMessageAsync(string channelId, CreateMessageRequest request, CancellationToken cancellationToken = default)
   {
     var channelEndpoint = new Uri($"channels/{channelId}/messages", UriKind.Relative);
     var response = await _httpClient.PostAsJsonAsync(channelEndpoint, request, cancellationToken);

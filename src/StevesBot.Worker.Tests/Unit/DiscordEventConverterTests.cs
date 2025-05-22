@@ -84,6 +84,16 @@ public class DiscordEventConverterTests
     {
       new
       {
+        op = DiscordOpCodes.Dispatch,
+        s = null as int?,
+        t = DiscordEventTypes.MessageCreate,
+        d = null as object
+      },
+      typeof(MessageCreateDiscordEvent)
+    },
+    {
+      new
+      {
         op = DiscordOpCodes.HeartbeatAck,
         s = null as int?,
         t = null as string,
@@ -100,6 +110,36 @@ public class DiscordEventConverterTests
         d = null as object
       },
       typeof(DiscordEvent)
+    },
+    {
+      new
+      {
+        op = 1,
+        s = null as int?,
+        t = null as string,
+        d = null as object
+      },
+      typeof(HeartbeatDiscordEvent)
+    },
+    {
+      new
+      {
+        op = 7,
+        s = null as int?,
+        t = null as string,
+        d = null as object
+      },
+      typeof(ReconnectDiscordEvent)
+    },
+    {
+      new
+      {
+        op = 9,
+        s = null as int?,
+        t = null as string,
+        d = false
+      },
+      typeof(InvalidSessionDiscordEvent)
     }
   };
 }

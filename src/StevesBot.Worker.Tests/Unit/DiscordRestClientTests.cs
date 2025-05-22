@@ -1,11 +1,14 @@
+using Microsoft.AspNetCore.Http.HttpResults;
+
 namespace StevesBot.Worker.Tests.Unit;
 
 public sealed class DiscordRestClientTests : IDisposable
 {
   private const string BaseUrl = "https://discord.com/api/v10";
   private static string GatewayEndpoint => $"{BaseUrl}/gateway";
+  private static string ChannelMessagesEndpoint => $"{BaseUrl}/channels/*/messages";
 
-  private readonly Mock<ILogger<DiscordRestClient>> _loggerMock = new();
+  private readonly Mock<ILogger<DiscordRestClient>> _mockLogger = new();
   private readonly MockHttpMessageHandler _mockHttpMessageHandler;
   private readonly DiscordRestClient _discordRestClient;
 
@@ -14,7 +17,23 @@ public sealed class DiscordRestClientTests : IDisposable
     _mockHttpMessageHandler = new MockHttpMessageHandler();
     var httpClient = _mockHttpMessageHandler.ToHttpClient();
     httpClient.BaseAddress = new Uri("https://discord.com/api/v10/");
-    _discordRestClient = new DiscordRestClient(_loggerMock.Object, httpClient);
+    _discordRestClient = new DiscordRestClient(_mockLogger.Object, httpClient);
+  }
+
+  [Fact]
+  public void Constructor_WhenLoggerIsNull_ItShouldThrowAnException()
+  {
+    var act = () => new DiscordRestClient(null!, _mockHttpMessageHandler.ToHttpClient());
+
+    act.Should().Throw<ArgumentNullException>();
+  }
+
+  [Fact]
+  public void Constructor_WhenHttpClientIsNull_ItShouldThrowAnException()
+  {
+    var act = () => new DiscordRestClient(_mockLogger.Object, null!);
+
+    act.Should().Throw<ArgumentNullException>();
   }
 
   [Fact]
@@ -56,6 +75,60 @@ public sealed class DiscordRestClientTests : IDisposable
     var result = await _discordRestClient.GetGatewayUrlAsync(CancellationToken.None);
 
     result.Should().Be(expectedUrl);
+  }
+
+  [Fact]
+  public async Task CreateMessageAsync_WhenRequestFails_ItShouldThrowAnException()
+  {
+    _mockHttpMessageHandler
+      .When(ChannelMessagesEndpoint)
+      .Respond(HttpStatusCode.InternalServerError);
+
+    var request = new CreateMessageRequest(
+      "content",
+      new(DiscordMessageReferenceTypes.Default, "message_id", "channel_id", "guild_id", false)
+    );
+
+    var act = async () => await _discordRestClient.CreateMessageAsync("channel_id", request);
+
+    await act.Should().ThrowAsync<DiscordRestClientException>();
+  }
+
+  [Fact]
+  public async Task CreateMessageyAsync_WhenResponseIsNull_ItShouldThrowAnException()
+  {
+    _mockHttpMessageHandler
+      .When(ChannelMessagesEndpoint)
+      .Respond(HttpStatusCode.OK, "application/json", "null");
+
+    var request = new CreateMessageRequest(
+      "content",
+      new(DiscordMessageReferenceTypes.Default, "message_id", "channel_id", "guild_id", false)
+    );
+
+    var act = async () => await _discordRestClient.CreateMessageAsync("channel_id", request);
+
+    await act.Should().ThrowAsync<DiscordRestClientException>();
+  }
+
+  [Fact]
+  public async Task CreateMessageAsync_WhenRequestSucceeds_ItShouldReturnMessage()
+  {
+    var message = new DiscordMessage();
+    var messageResponse = JsonSerializer.Serialize(message);
+
+    _mockHttpMessageHandler
+      .When(ChannelMessagesEndpoint)
+      .Respond(HttpStatusCode.OK, "application/json", messageResponse);
+
+    var request = new CreateMessageRequest(
+      "content",
+      new(DiscordMessageReferenceTypes.Default, "message_id", "channel_id", "guild_id", false)
+    );
+
+    var result = await _discordRestClient.CreateMessageAsync("channel_id", request);
+
+    result.Should().BeEquivalentTo(message);
   }
 
   public void Dispose()
