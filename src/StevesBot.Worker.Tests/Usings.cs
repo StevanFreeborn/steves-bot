@@ -16,6 +16,7 @@ global using Moq;
 
 global using RichardSzalay.MockHttp;
 
+global using StevesBot.Worker.Discord;
 global using StevesBot.Worker.Discord.Gateway;
 global using StevesBot.Worker.Discord.Gateway.Events;
 global using StevesBot.Worker.Discord.Gateway.Events.Data;

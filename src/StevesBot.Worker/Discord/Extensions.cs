@@ -17,7 +17,7 @@ internal static class Extensions
     return services;
   }
 
-  public static IServiceCollection AddDiscordGatewayClient(this IServiceCollection services, Action<IDiscordGatewayClient>? configure)
+  public static IServiceCollection AddDiscordGatewayClient(this IServiceCollection services, Action<IDiscordGatewayClient>? configure = null)
   {
     services.AddSingleton<IDiscordGatewayClient>(sp =>
     {

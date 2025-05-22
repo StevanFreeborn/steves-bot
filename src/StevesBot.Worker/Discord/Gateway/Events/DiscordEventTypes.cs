@@ -8,7 +8,7 @@ internal static class DiscordEventTypes
 
   public static bool IsValidEvent(string eventName)
   {
-    if (string.IsNullOrEmpty(eventName))
+    if (string.IsNullOrWhiteSpace(eventName))
     {
       return false;
     }
