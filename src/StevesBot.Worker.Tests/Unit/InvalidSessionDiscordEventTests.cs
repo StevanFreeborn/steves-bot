@@ -7,7 +7,7 @@ public class InvalidSessionDiscordEventTests
   {
     var result = new InvalidSessionDiscordEvent();
 
-    result.OpCode.Should().Be(0);
+    result.OpCode.Should().Be(DiscordOpCodes.InvalidSession);
     result.Type.Should().BeNull();
     result.Sequence.Should().BeNull();
     result.Data.Should().BeFalse();

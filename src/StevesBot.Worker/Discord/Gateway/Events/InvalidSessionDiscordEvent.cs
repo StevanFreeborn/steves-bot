@@ -4,4 +4,9 @@ internal sealed record InvalidSessionDiscordEvent : DiscordEvent
 {
   [JsonPropertyName("d")]
   public new bool Data { get; init; }
+
+  public InvalidSessionDiscordEvent()
+  {
+    OpCode = DiscordOpCodes.InvalidSession;
+  }
 }
