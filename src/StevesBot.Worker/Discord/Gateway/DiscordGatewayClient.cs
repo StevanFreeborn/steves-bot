@@ -180,6 +180,10 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
           memoryStream.Seek(0, SeekOrigin.Begin);
 
+          var msg = Encoding.UTF8.GetString(messageBuffer, 0, result.Count);
+
+          _logger.LogDebug("Received message: {Message}", msg);
+
           var e = await JsonSerializer.DeserializeAsync<DiscordEvent>(
             memoryStream,
             _jsonSerializerOptions,
@@ -192,7 +196,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
             continue;
           }
 
-          await HandleEventAsync(e, _linkedReceiveMessageCts.Token);
+          await HandleEventAsync(e, cancellationToken);
         }
       }
       catch (OperationCanceledException ex)
@@ -366,8 +370,8 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
   private async Task ReconnectAsync(CancellationToken cancellationToken)
   {
-    await CancelReceiveMessagesTaskAsync(cancellationToken);
     await CancelHeartbeatTaskAsync(cancellationToken);
+    await CancelReceiveMessagesTaskAsync(cancellationToken);
 
     var closeStatus = _canResume ? WebSocketCloseStatus.MandatoryExtension : WebSocketCloseStatus.NormalClosure;
 

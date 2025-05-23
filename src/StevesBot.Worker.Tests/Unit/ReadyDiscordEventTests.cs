@@ -10,7 +10,7 @@ public class ReadyDiscordEventTests
 
     readyEvent.OpCode.Should().Be(0);
     readyEvent.Sequence.Should().BeNull();
-    readyEvent.Type.Should().BeNull();
+    readyEvent.Type.Should().Be(DiscordEventTypes.Ready);
     readyEvent.Data.Should().BeEquivalentTo(readyData);
     readyData.Version.Should().Be(0);
     readyData.SessionId.Should().Be(string.Empty);
