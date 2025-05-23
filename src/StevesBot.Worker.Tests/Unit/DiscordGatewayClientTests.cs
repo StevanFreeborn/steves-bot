@@ -138,6 +138,70 @@ public sealed class DiscordGatewayClientTests : IDisposable
       );
   }
 
+  [Fact]
+  public async Task ConnectAsync_WhenConnectedAndHelloEventIsReceived_ItShouldStartSendingHeartbeatsAndIdentify()
+  {
+    // TODO: This does not work! You need
+    // to figure it out! When this runs
+    // concurrently with test above that
+    // test starts to fail
+
+    _mockDiscordRestClient
+      .Setup(static x => x.GetGatewayUrlAsync(It.IsAny<CancellationToken>()))
+      .ReturnsAsync("wss://gateway.discord.gg");
+
+    var mockWebSocket = new Mock<IWebSocket>();
+
+    mockWebSocket
+      .Setup(static x => x.ConnectAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+      .Returns(Task.CompletedTask);
+
+    mockWebSocket
+      .SetupSequence(static x => x.State)
+      .Returns(WebSocketState.Closed)
+      .Returns(WebSocketState.Open);
+
+    var messagesToReceive = new Queue<(WebSocketReceiveResult, byte[])>();
+    var helloEvent = new HelloDiscordEvent();
+    var payload = CreateEventPayload(helloEvent);
+    var result = new WebSocketReceiveResult(payload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((result, payload.Bytes));
+
+    SetupReceiveMessageSequence(mockWebSocket, messagesToReceive);
+
+    _mockWebSocketFactory
+      .Setup(static x => x.Create())
+      .Returns(mockWebSocket.Object);
+
+    using var cts = new CancellationTokenSource();
+
+    await _discordGatewayClient.ConnectAsync(cts.Token);
+    await Task.Delay(100);
+    await cts.CancelAsync();
+
+    var heartbeatEvent = new HeartbeatDiscordEvent(helloEvent.Sequence);
+    var heartbeatPayload = CreateEventPayload(heartbeatEvent);
+
+    // it should send a heartbeat
+    mockWebSocket
+      .Verify(
+        x => x.SendAsync(
+          It.Is<ArraySegment<byte>>(b => heartbeatPayload.Bytes.SequenceEqual(b.Array!)),
+          It.Is<WebSocketMessageType>(m => m == WebSocketMessageType.Text),
+          true,
+          It.IsAny<CancellationToken>()
+        ),
+        Times.Once
+      );
+
+    // it should send a identify event
+    // mockWebSocket
+    //   .Verify(
+    //     x => x.SendAsync(),
+    //     Times.Once
+    //   );
+  }
+
   private static void SetupReceiveMessageSequence(
     Mock<IWebSocket> mockWebSocket,
     Queue<(WebSocketReceiveResult, byte[])> messageQueue

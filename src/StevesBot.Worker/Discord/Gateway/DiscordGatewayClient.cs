@@ -218,7 +218,6 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
   private async Task HandleEventAsync(DiscordEvent e, CancellationToken cancellationToken)
   {
-    // TODO: Handle other events
     await SetSequenceAsync(e.Sequence, cancellationToken);
 
     switch (e)
