@@ -8,7 +8,7 @@ public class MessageCreateDiscordEventTests
     var result = new MessageCreateDiscordEvent();
 
     result.OpCode.Should().Be(0);
-    result.Type.Should().BeNull();
+    result.Type.Should().Be(DiscordEventTypes.MessageCreate);
     result.Sequence.Should().BeNull();
     result.Data.Should().BeEquivalentTo(new DiscordMessage());
   }

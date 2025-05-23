@@ -18,6 +18,18 @@ public sealed class DiscordGatewayClientTests : IDisposable
       .Setup(static x => x.GetUtcNow())
       .Returns(DateTimeOffset.UtcNow);
 
+    var mockServiceProvider = new Mock<IServiceProvider>();
+
+    var mockServiceScope = new Mock<IServiceScope>();
+
+    mockServiceScope
+      .Setup(static x => x.ServiceProvider)
+      .Returns(mockServiceProvider.Object);
+
+    _mockServiceScopeFactory
+      .Setup(static x => x.CreateScope())
+      .Returns(mockServiceScope.Object);
+
     _discordGatewayClient = new DiscordGatewayClient(
       _options,
       _mockWebSocketFactory.Object,
@@ -1056,9 +1068,92 @@ public sealed class DiscordGatewayClientTests : IDisposable
   }
 
   [Fact]
-  public Task On_WhenCalledWithValidEventAndHandler_ItShouldSubscribeHandlerToEvent()
+  public async Task On_WhenCalledWithValidEventAndHandler_ItShouldSubscribeHandlerToEvent()
   {
-    throw new NotImplementedException();
+    var readyHandler = new Mock<Func<DiscordEvent, IServiceProvider, CancellationToken, Task>>();
+    var firstCreateMessageHandler = new Mock<Func<DiscordEvent, IServiceProvider, CancellationToken, Task>>();
+    var secondCreateMessageHandler = new Mock<Func<DiscordEvent, IServiceProvider, CancellationToken, Task>>();
+
+    secondCreateMessageHandler
+      .Setup(static x => x(It.IsAny<DiscordEvent>(), It.IsAny<IServiceProvider>(), It.IsAny<CancellationToken>()))
+      .ThrowsAsync(new Exception("This is a test exception"));
+
+    _discordGatewayClient.On(DiscordEventTypes.Ready, readyHandler.Object);
+    _discordGatewayClient.On(DiscordEventTypes.MessageCreate, firstCreateMessageHandler.Object);
+    _discordGatewayClient.On(DiscordEventTypes.MessageCreate, secondCreateMessageHandler.Object);
+
+    _mockDiscordRestClient
+      .Setup(static x => x.GetGatewayUrlAsync(It.IsAny<CancellationToken>()))
+      .ReturnsAsync("wss://gateway.discord.gg");
+
+    var socketState = WebSocketState.Closed;
+
+    var mockWebSocket = new Mock<IWebSocket>();
+
+    mockWebSocket
+      .Setup(static x => x.State)
+      .Returns(() => socketState);
+
+    mockWebSocket
+      .Setup(static x => x.ConnectAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+      .Callback(() => socketState = WebSocketState.Open)
+      .Returns(Task.CompletedTask);
+
+    var messagesToReceive = new Queue<(WebSocketReceiveResult, byte[])>();
+    var heartbeatInterval = 100;
+    var helloEvent = new HelloDiscordEvent()
+    {
+      Data = new()
+      {
+        HeartbeatInterval = heartbeatInterval,
+      }
+    };
+    var helloPayload = CreateEventPayload(helloEvent);
+    var helloResult = new WebSocketReceiveResult(helloPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((helloResult, helloPayload.Bytes));
+
+    var sessionId = "session_id";
+    var resumeGatewayUrl = "wss://resume.discord.gg";
+    var readyEvent = new ReadyDiscordEvent()
+    {
+      Data = new ReadyData()
+      {
+        SessionId = sessionId,
+        ResumeGatewayUrl = resumeGatewayUrl,
+      }
+    };
+    var readyPayload = CreateEventPayload(readyEvent);
+    var readyResult = new WebSocketReceiveResult(readyPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((readyResult, readyPayload.Bytes));
+
+    var heartbeatAckEvent = new HeartbeatAckDiscordEvent();
+    var heartbeatAckPayload = CreateEventPayload(heartbeatAckEvent);
+    var heartbeatAckResult = new WebSocketReceiveResult(heartbeatAckPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((heartbeatAckResult, heartbeatAckPayload.Bytes));
+
+    var messageCreateEvent = new MessageCreateDiscordEvent();
+    var messageCreatePayload = CreateEventPayload(messageCreateEvent);
+    var messageCreateResult = new WebSocketReceiveResult(
+      messageCreatePayload.Bytes.Length,
+      WebSocketMessageType.Text,
+      true
+    );
+    messagesToReceive.Enqueue((messageCreateResult, messageCreatePayload.Bytes));
+
+    SetupReceiveMessageSequence(mockWebSocket, messagesToReceive);
+
+    _mockWebSocketFactory
+      .Setup(static x => x.Create())
+      .Returns(mockWebSocket.Object);
+
+    using var cts = new CancellationTokenSource();
+    await _discordGatewayClient.ConnectAsync(cts.Token);
+    await Task.Delay(heartbeatInterval * 2);
+    await cts.CancelAsync();
+
+    readyHandler.Invocations.Should().HaveCount(1);
+    firstCreateMessageHandler.Invocations.Should().HaveCount(1);
+    secondCreateMessageHandler.Invocations.Should().HaveCount(1);
   }
 
   [Fact]
@@ -1077,9 +1172,92 @@ public sealed class DiscordGatewayClientTests : IDisposable
   }
 
   [Fact]
-  public Task Off_WhenCalledWithValidEventAndHandler_ItShouldUnsubscribeHandlerFromEvent()
+  public async Task Off_WhenCalledWithValidEventAndHandler_ItShouldUnsubscribeHandlerFromEvent()
   {
-    throw new NotImplementedException();
+    var readyHandler = new Mock<Func<DiscordEvent, IServiceProvider, CancellationToken, Task>>();
+    var firstCreateMessageHandler = new Mock<Func<DiscordEvent, IServiceProvider, CancellationToken, Task>>();
+    var secondCreateMessageHandler = new Mock<Func<DiscordEvent, IServiceProvider, CancellationToken, Task>>();
+
+    _discordGatewayClient.On(DiscordEventTypes.Ready, readyHandler.Object);
+    _discordGatewayClient.On(DiscordEventTypes.MessageCreate, firstCreateMessageHandler.Object);
+    _discordGatewayClient.On(DiscordEventTypes.MessageCreate, secondCreateMessageHandler.Object);
+
+    _discordGatewayClient.Off(DiscordEventTypes.MessageCreate, firstCreateMessageHandler.Object);
+    _discordGatewayClient.Off(DiscordEventTypes.Ready, readyHandler.Object);
+    _discordGatewayClient.Off(DiscordEventTypes.Ready, readyHandler.Object);
+
+    _mockDiscordRestClient
+      .Setup(static x => x.GetGatewayUrlAsync(It.IsAny<CancellationToken>()))
+      .ReturnsAsync("wss://gateway.discord.gg");
+
+    var socketState = WebSocketState.Closed;
+
+    var mockWebSocket = new Mock<IWebSocket>();
+
+    mockWebSocket
+      .Setup(static x => x.State)
+      .Returns(() => socketState);
+
+    mockWebSocket
+      .Setup(static x => x.ConnectAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+      .Callback(() => socketState = WebSocketState.Open)
+      .Returns(Task.CompletedTask);
+
+    var messagesToReceive = new Queue<(WebSocketReceiveResult, byte[])>();
+    var heartbeatInterval = 100;
+    var helloEvent = new HelloDiscordEvent()
+    {
+      Data = new()
+      {
+        HeartbeatInterval = heartbeatInterval,
+      }
+    };
+    var helloPayload = CreateEventPayload(helloEvent);
+    var helloResult = new WebSocketReceiveResult(helloPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((helloResult, helloPayload.Bytes));
+
+    var sessionId = "session_id";
+    var resumeGatewayUrl = "wss://resume.discord.gg";
+    var readyEvent = new ReadyDiscordEvent()
+    {
+      Data = new ReadyData()
+      {
+        SessionId = sessionId,
+        ResumeGatewayUrl = resumeGatewayUrl,
+      }
+    };
+    var readyPayload = CreateEventPayload(readyEvent);
+    var readyResult = new WebSocketReceiveResult(readyPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((readyResult, readyPayload.Bytes));
+
+    var heartbeatAckEvent = new HeartbeatAckDiscordEvent();
+    var heartbeatAckPayload = CreateEventPayload(heartbeatAckEvent);
+    var heartbeatAckResult = new WebSocketReceiveResult(heartbeatAckPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((heartbeatAckResult, heartbeatAckPayload.Bytes));
+
+    var messageCreateEvent = new MessageCreateDiscordEvent();
+    var messageCreatePayload = CreateEventPayload(messageCreateEvent);
+    var messageCreateResult = new WebSocketReceiveResult(
+      messageCreatePayload.Bytes.Length,
+      WebSocketMessageType.Text,
+      true
+    );
+    messagesToReceive.Enqueue((messageCreateResult, messageCreatePayload.Bytes));
+
+    SetupReceiveMessageSequence(mockWebSocket, messagesToReceive);
+
+    _mockWebSocketFactory
+      .Setup(static x => x.Create())
+      .Returns(mockWebSocket.Object);
+
+    using var cts = new CancellationTokenSource();
+
+    await _discordGatewayClient.ConnectAsync(cts.Token);
+    await Task.Delay(heartbeatInterval * 2);
+    await cts.CancelAsync();
+
+    readyHandler.Invocations.Should().HaveCount(0);
+    firstCreateMessageHandler.Invocations.Should().HaveCount(0);
   }
 
   private static void SetupReceiveMessageSequence(
