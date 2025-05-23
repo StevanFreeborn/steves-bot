@@ -244,16 +244,11 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
         await SetDispatchSequenceAsync(e.Sequence, cancellationToken);
         var eventType = de.Type ?? "Unknown";
 
-        switch (de)
+        if (de is ReadyDiscordEvent re)
         {
-          case ReadyDiscordEvent re:
-            await SetSessionIdAsync(re.Data.SessionId, cancellationToken);
-            await SetResumeGatewayUrlAsync(re.Data.ResumeGatewayUrl, cancellationToken);
-            _logger.LogInformation("Ready event received");
-            break;
-          default:
-            _logger.LogInformation("Received dispatch event: {Event}", eventType);
-            break;
+          await SetSessionIdAsync(re.Data.SessionId, cancellationToken);
+          await SetResumeGatewayUrlAsync(re.Data.ResumeGatewayUrl, cancellationToken);
+          _logger.LogInformation("Ready event received");
         }
 
         if (_eventHandlers.TryGetValue(eventType, out var handler))

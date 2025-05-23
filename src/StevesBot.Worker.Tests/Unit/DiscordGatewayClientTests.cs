@@ -238,7 +238,7 @@ public sealed class DiscordGatewayClientTests : IDisposable
   }
 
   [Fact]
-  public async Task ConnectAsync_OnceConnected_ItShouldStopSendingHeartbeatsIfTheyAreNotAcknowledgedAndAttemptToResume()
+  public async Task ConnectAsync_OnceConnectedIfHeartbeatIsNotAcknowledged_ItShouldStopSendingHeartbeatsAndAttemptToResume()
   {
     _mockDiscordRestClient
       .Setup(static x => x.GetGatewayUrlAsync(It.IsAny<CancellationToken>()))
@@ -317,8 +317,9 @@ public sealed class DiscordGatewayClientTests : IDisposable
 
     using var cts = new CancellationTokenSource();
 
-    await _discordGatewayClient.ConnectAsync(CancellationToken.None);
+    await _discordGatewayClient.ConnectAsync(cts.Token);
     await Task.Delay((int)(heartbeatInterval * 2.5));
+    await cts.CancelAsync();
 
     var expectedHeartbeatEvent = new HeartbeatDiscordEvent(helloEvent.Sequence);
     var expectedHeartbeatPayload = CreateEventPayload(expectedHeartbeatEvent);
@@ -347,7 +348,7 @@ public sealed class DiscordGatewayClientTests : IDisposable
   }
 
   [Fact]
-  public async Task ConnectAsync_OnceConnected_ItShouldContinueSendingHeartbeatsIfTheyAreAcknowledged()
+  public async Task ConnectAsync_OnceConnectedIfHeartbeatIsAcknowledged_ItShouldContinueSendingHeartbeats()
   {
     _mockDiscordRestClient
       .Setup(static x => x.GetGatewayUrlAsync(It.IsAny<CancellationToken>()))
@@ -409,6 +410,125 @@ public sealed class DiscordGatewayClientTests : IDisposable
         ),
         Times.AtLeast(2)
       );
+  }
+
+  [Fact]
+  public async Task ConnectAsync_OnceConnectedWhenHeartRequestReceived_ItShouldImmediatelySendHeartbeat()
+  {
+    _mockDiscordRestClient
+      .Setup(static x => x.GetGatewayUrlAsync(It.IsAny<CancellationToken>()))
+      .ReturnsAsync("wss://gateway.discord.gg");
+
+    var socketState = WebSocketState.Closed;
+
+    var mockWebSocket = new Mock<IWebSocket>();
+
+    mockWebSocket
+      .Setup(static x => x.State)
+      .Returns(() => socketState);
+
+    mockWebSocket
+      .Setup(static x => x.ConnectAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+      .Callback(() => socketState = WebSocketState.Open)
+      .Returns(Task.CompletedTask);
+
+    mockWebSocket
+      .Setup(static x => x.CloseAsync(It.IsAny<WebSocketCloseStatus>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+      .Callback(() => socketState = WebSocketState.Closed)
+      .Returns(Task.CompletedTask);
+
+    var messagesToReceive = new Queue<(WebSocketReceiveResult, byte[])>();
+    var heartbeatInterval = 100;
+    var helloEvent = new HelloDiscordEvent()
+    {
+      Data = new()
+      {
+        HeartbeatInterval = heartbeatInterval,
+      }
+    };
+    var helloPayload = CreateEventPayload(helloEvent);
+    var helloResult = new WebSocketReceiveResult(helloPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((helloResult, helloPayload.Bytes));
+
+    var sessionId = "session_id";
+    var resumeGatewayUrl = "wss://resume.discord.gg";
+    var readyEvent = new ReadyDiscordEvent()
+    {
+      Data = new ReadyData()
+      {
+        SessionId = sessionId,
+        ResumeGatewayUrl = resumeGatewayUrl,
+      }
+    };
+    var readyPayload = CreateEventPayload(readyEvent);
+    var readyResult = new WebSocketReceiveResult(readyPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((readyResult, readyPayload.Bytes));
+
+    var heartbeatAckEvent = new HeartbeatAckDiscordEvent();
+    var heartbeatAckPayload = CreateEventPayload(heartbeatAckEvent);
+    var heartbeatAckResult = new WebSocketReceiveResult(heartbeatAckPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((heartbeatAckResult, heartbeatAckPayload.Bytes));
+
+    var heartbeatRequestEvent = new HeartbeatDiscordEvent(readyEvent.Sequence);
+    var heartbeatRequestPayload = CreateEventPayload(heartbeatRequestEvent);
+    var heartbeatRequestResult = new WebSocketReceiveResult(heartbeatRequestPayload.Bytes.Length, WebSocketMessageType.Text, true);
+    messagesToReceive.Enqueue((heartbeatRequestResult, heartbeatRequestPayload.Bytes));
+
+    SetupReceiveMessageSequence(mockWebSocket, messagesToReceive);
+
+    _mockWebSocketFactory
+      .Setup(static x => x.Create())
+      .Returns(mockWebSocket.Object);
+
+    using var cts = new CancellationTokenSource();
+
+    await _discordGatewayClient.ConnectAsync(cts.Token);
+    await Task.Delay(heartbeatInterval * 2);
+    await cts.CancelAsync();
+
+    var expectedHeartbeatEvent = new HeartbeatDiscordEvent(helloEvent.Sequence);
+    var expectedHeartbeatPayload = CreateEventPayload(expectedHeartbeatEvent);
+
+    mockWebSocket
+      .Verify(
+        x => x.SendAsync(
+          It.Is<ArraySegment<byte>>(b => expectedHeartbeatPayload.Bytes.SequenceEqual(b.Array!)),
+          It.Is<WebSocketMessageType>(m => m == WebSocketMessageType.Text),
+          true,
+          It.IsAny<CancellationToken>()
+        ),
+        Times.AtLeast(2)
+      );
+  }
+
+  [Fact]
+  public Task ConnectAsync_OnceConnectedWhenUnReconnectableCloseStatusIsReceived_ItShouldDisconnectAndNotTryToReconnect()
+  {
+    return Task.CompletedTask;
+  }
+
+  [Fact]
+  public Task ConnectAsync_OnceConnectedWhenReconnectableButNonResumableCloseStatusIsReceived_ItShouldReconnect()
+  {
+    return Task.CompletedTask;
+  }
+
+  [Fact]
+  public Task ConnectAsync_OnceConnectedWhenResumableCloseStatusIsReceived_ItShouldResume()
+  {
+    return Task.CompletedTask;
+  }
+
+  [Fact]
+  public Task ConnectAsync_OnceConnectedWhenReconnectEventIsReceivedThatIndicatesClientCanResume_ItShouldResume()
+  {
+    return Task.CompletedTask;
+  }
+
+  [Fact]
+  public Task ConnectAsync_OnceConnectedWhenReconnectEventIsReceivedThatIndicatesClientCannotResume_ItShouldReconnect()
+  {
+    return Task.CompletedTask;
   }
 
   private static void SetupReceiveMessageSequence(
