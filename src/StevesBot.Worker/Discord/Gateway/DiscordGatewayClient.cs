@@ -420,7 +420,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
   {
     var identify = new IdentifyDiscordEvent(
       _options.AppToken,
-      DiscordIntents.All,
+      _options.Intents,
       new UpdatePresenceData
       {
         Status = PresenceStatus.Online,
@@ -430,7 +430,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
             Name = "Helping Stevan",
             State = "Helping Stevan"
           }
-      ],
+        ],
       }
     );
 
@@ -716,12 +716,6 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
   public void Dispose()
   {
-    _heartbeatCts?.Cancel();
-    _linkedHeartbeatCts?.Cancel();
-
-    _receiveMessageCts?.Cancel();
-    _linkedReceiveMessageCts?.Cancel();
-
     _heartbeatCts?.Dispose();
     _linkedHeartbeatCts?.Dispose();
 

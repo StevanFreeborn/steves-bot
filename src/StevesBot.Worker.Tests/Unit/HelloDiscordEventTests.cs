@@ -8,7 +8,7 @@ public class HelloDiscordEventTests
     var helloEvent = new HelloDiscordEvent();
     var helloData = new HelloData();
 
-    helloEvent.OpCode.Should().Be(0);
+    helloEvent.OpCode.Should().Be(DiscordOpCodes.Hello);
     helloEvent.Sequence.Should().BeNull();
     helloEvent.Type.Should().BeNull();
     helloEvent.Data.Should().BeEquivalentTo(helloData);

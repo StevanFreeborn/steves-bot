@@ -125,6 +125,15 @@ public sealed class DiscordGatewayClientTests : IDisposable
 
     var mockWebSocket = new Mock<IWebSocket>();
 
+    mockWebSocket
+      .SetupSequence(static x => x.State)
+      .Returns(WebSocketState.Closed)
+      .Returns(WebSocketState.Open);
+
+    mockWebSocket
+      .Setup(static x => x.ConnectAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+      .Returns(Task.CompletedTask);
+
     _mockWebSocketFactory
       .Setup(static x => x.Create())
       .Returns(mockWebSocket.Object);
@@ -152,17 +161,26 @@ public sealed class DiscordGatewayClientTests : IDisposable
 
     var mockWebSocket = new Mock<IWebSocket>();
 
+    var socketState = WebSocketState.Closed;
+
+    mockWebSocket
+      .Setup(static x => x.State)
+      .Returns(() => socketState);
+
     mockWebSocket
       .Setup(static x => x.ConnectAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+      .Callback(() => socketState = WebSocketState.Open)
       .Returns(Task.CompletedTask);
 
-    mockWebSocket
-      .SetupSequence(static x => x.State)
-      .Returns(WebSocketState.Closed)
-      .Returns(WebSocketState.Open);
-
     var messagesToReceive = new Queue<(WebSocketReceiveResult, byte[])>();
-    var helloEvent = new HelloDiscordEvent();
+    var heartbeatInterval = 100;
+    var helloEvent = new HelloDiscordEvent()
+    {
+      Data = new()
+      {
+        HeartbeatInterval = heartbeatInterval,
+      }
+    };
     var payload = CreateEventPayload(helloEvent);
     var result = new WebSocketReceiveResult(payload.Bytes.Length, WebSocketMessageType.Text, true);
     messagesToReceive.Enqueue((result, payload.Bytes));
@@ -176,13 +194,12 @@ public sealed class DiscordGatewayClientTests : IDisposable
     using var cts = new CancellationTokenSource();
 
     await _discordGatewayClient.ConnectAsync(cts.Token);
-    await Task.Delay(100);
+    await Task.Delay((int)(heartbeatInterval * 1.5));
     await cts.CancelAsync();
 
     var heartbeatEvent = new HeartbeatDiscordEvent(helloEvent.Sequence);
     var heartbeatPayload = CreateEventPayload(heartbeatEvent);
 
-    // it should send a heartbeat
     mockWebSocket
       .Verify(
         x => x.SendAsync(
@@ -194,12 +211,33 @@ public sealed class DiscordGatewayClientTests : IDisposable
         Times.Once
       );
 
-    // it should send a identify event
-    // mockWebSocket
-    //   .Verify(
-    //     x => x.SendAsync(),
-    //     Times.Once
-    //   );
+    var identifyEvent = new IdentifyDiscordEvent(
+      _options.AppToken,
+      _options.Intents,
+      new UpdatePresenceData
+      {
+        Status = PresenceStatus.Online,
+        Activities = [
+          new()
+          {
+            Name = "Helping Stevan",
+            State = "Helping Stevan"
+          }
+        ],
+      }
+    );
+    var identifyPayload = CreateEventPayload(identifyEvent);
+
+    mockWebSocket
+      .Verify(
+        x => x.SendAsync(
+          It.Is<ArraySegment<byte>>(b => identifyPayload.Bytes.SequenceEqual(b.Array!)),
+          It.Is<WebSocketMessageType>(m => m == WebSocketMessageType.Text),
+          true,
+          It.IsAny<CancellationToken>()
+        ),
+        Times.Once
+      );
   }
 
   private static void SetupReceiveMessageSequence(
