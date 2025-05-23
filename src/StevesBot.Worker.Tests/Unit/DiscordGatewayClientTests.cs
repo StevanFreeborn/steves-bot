@@ -1056,6 +1056,12 @@ public sealed class DiscordGatewayClientTests : IDisposable
   }
 
   [Fact]
+  public Task On_WhenCalledWithValidEventAndHandler_ItShouldSubscribeHandlerToEvent()
+  {
+    throw new NotImplementedException();
+  }
+
+  [Fact]
   public void Off_WhenCalledWithInvalidEvent_ItShouldThrowException()
   {
     var handler = new Func<DiscordEvent, IServiceProvider, CancellationToken, Task>((e, sp, ct) => Task.CompletedTask);
@@ -1068,6 +1074,12 @@ public sealed class DiscordGatewayClientTests : IDisposable
   {
     var act = () => _discordGatewayClient.Off(DiscordEventTypes.Ready, null!);
     act.Should().Throw<ArgumentNullException>();
+  }
+
+  [Fact]
+  public Task Off_WhenCalledWithValidEventAndHandler_ItShouldUnsubscribeHandlerFromEvent()
+  {
+    throw new NotImplementedException();
   }
 
   private static void SetupReceiveMessageSequence(
