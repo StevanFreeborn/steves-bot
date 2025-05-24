@@ -103,7 +103,7 @@ src/
 |----------------------------|------------------------|----------|
 | `SeqOptions__ServerUrl`    | Seq logging server URL | No       |
 | `SeqOptions__ApiKey`       | Seq API key            | No       |
-| `SeqOptions__ApiKeyHeader` | Seq API key header     | NO       |
+| `SeqOptions__ApiKeyHeader` | Seq API key header     | No       |
 
 ## 🧪 Testing
 
