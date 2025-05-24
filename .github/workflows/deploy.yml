@@ -26,7 +26,7 @@ jobs:
       - name: Build Docker image
         run: |
           TAG=${{ secrets.DOCKERHUB_USERNAME }}/steves-bot:${{ steps.version.outputs.version }}
-          docker build -t $TAG src/StevesBot.Worker
+          docker build -t $TAG src
           docker push $TAG
   deploy:
     name: Deploy Docker Image
