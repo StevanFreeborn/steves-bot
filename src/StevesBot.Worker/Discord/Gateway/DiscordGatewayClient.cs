@@ -175,22 +175,31 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
             if (result.MessageType is WebSocketMessageType.Text)
             {
               await memoryStream.WriteAsync(messageBuffer.AsMemory(0, result.Count), _linkedReceiveMessageCts.Token);
-              await memoryStream.FlushAsync(_linkedReceiveMessageCts.Token);
             }
 
           } while (result.EndOfMessage is false);
+
+          await memoryStream.FlushAsync(_linkedReceiveMessageCts.Token);
 
           memoryStream.Seek(0, SeekOrigin.Begin);
 
           var msg = Encoding.UTF8.GetString(messageBuffer, 0, result.Count);
 
-          _logger.LogDebug("Received message: {Message}", msg);
+          DiscordEvent? e = null;
 
-          var e = await JsonSerializer.DeserializeAsync<DiscordEvent>(
-            memoryStream,
-            _jsonSerializerOptions,
-            _linkedReceiveMessageCts.Token
-          );
+          try
+          {
+            e = await JsonSerializer.DeserializeAsync<DiscordEvent>(
+              memoryStream,
+              _jsonSerializerOptions,
+              _linkedReceiveMessageCts.Token
+            );
+          }
+          catch (JsonException ex)
+          {
+            _logger.LogError(ex, "Failed to deserialize message: {Message}", msg);
+          }
+
 
           if (e is null)
           {
