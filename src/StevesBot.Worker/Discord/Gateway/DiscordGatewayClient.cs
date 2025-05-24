@@ -238,17 +238,17 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
     switch (e)
     {
       case HelloDiscordEvent he:
+        _logger.LogInformation("Hello event received");
         await SetHeartbeatIntervalAsync(he.Data.HeartbeatInterval, cancellationToken);
         await StartHeartbeatAsync(cancellationToken);
         await IdentifyAsync(cancellationToken);
-        _logger.LogInformation("Hello event received");
         break;
       case HeartbeatAckDiscordEvent:
+        _logger.LogInformation("Heartbeat acknowledged event received");
         await SetHeartbeatAcknowledgedAsync(_timeProvider.GetUtcNow(), cancellationToken);
-        _logger.LogInformation("Heartbeat acknowledged");
         break;
       case HeartbeatDiscordEvent:
-        _logger.LogInformation("Heartbeat request received");
+        _logger.LogInformation("Heartbeat request event received");
         await SendHeartbeatAsync(cancellationToken);
         break;
       case DispatchDiscordEvent de:
@@ -257,9 +257,9 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
         if (de is ReadyDiscordEvent re)
         {
+          _logger.LogInformation("Ready event received");
           await SetSessionIdAsync(re.Data.SessionId, cancellationToken);
           await SetResumeGatewayUrlAsync(re.Data.ResumeGatewayUrl, cancellationToken);
-          _logger.LogInformation("Ready event received");
         }
 
         if (_eventHandlers.TryGetValue(eventType, out var handler))
@@ -377,6 +377,9 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
   private async Task ReconnectAsync(CancellationToken cancellationToken)
   {
     await CancelHeartbeatTaskAsync(cancellationToken);
+    await SetHeartbeatSentAsync(DateTimeOffset.MinValue, cancellationToken);
+    await SetHeartbeatAcknowledgedAsync(DateTimeOffset.MinValue, cancellationToken);
+
     await CancelReceiveMessagesTaskAsync(cancellationToken);
 
     var closeStatus = _canResume ? WebSocketCloseStatus.MandatoryExtension : WebSocketCloseStatus.NormalClosure;
@@ -395,9 +398,9 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
       await SetWebSocketAsync(_webSocketFactory.Create(), cancellationToken);
       await ConnectWithResumeUrlAsync(cancellationToken);
-      await SendResumeAsync(cancellationToken);
       await StartReceiveMessagesAsync(cancellationToken);
       await StartHeartbeatAsync(cancellationToken);
+      await SendResumeAsync(cancellationToken);
       return;
     }
 
