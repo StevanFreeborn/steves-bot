@@ -42,7 +42,7 @@ jobs:
           script: |
             cd steves-bot
 
-            echo 'Logging__LogLevel__Default=Debug>> .env
+            echo 'Logging__LogLevel__Default=Debug' >> .env
             echo 'Logging__LogLevel__Microsoft=Debug' >> .env
             echo 'Logging__LogLevel__Microsoft.Hosting.Lifetime=Debug' >> .env
             echo 'DiscordClientOptions__ApiUrl=${{ vars.DISCORD_API_URL }}' >> .env
