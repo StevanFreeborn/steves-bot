@@ -1,3 +1,5 @@
+using Activity = StevesBot.Worker.Discord.Gateway.Events.Data.Activity;
+
 namespace StevesBot.Worker.Discord.Gateway;
 
 internal sealed class DiscordGatewayClient : IDiscordGatewayClient
@@ -201,7 +203,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       }
       catch (OperationCanceledException ex)
       {
-        _logger.LogInformation(ex, "Receive messages operation canceled: {Message}", ex.Message);
+        _logger.LogInformation(ex, "Receive messages operation canceled");
       }
 #pragma warning disable CA1031 // Do not catch general exception types
       catch (Exception ex)

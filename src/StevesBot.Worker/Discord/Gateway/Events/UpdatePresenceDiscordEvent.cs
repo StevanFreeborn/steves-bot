@@ -1,3 +1,5 @@
+using Activity = StevesBot.Worker.Discord.Gateway.Events.Data.Activity;
+
 namespace StevesBot.Worker.Discord.Gateway.Events;
 
 internal sealed record UpdatePresenceDiscordEvent : DiscordEvent

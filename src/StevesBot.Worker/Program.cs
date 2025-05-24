@@ -11,6 +11,8 @@ builder.Services.AddSingleton(static sp =>
   return discordOptions;
 });
 
+builder.AddTelemetry();
+
 builder.Services.AddSingleton<IWebSocketFactory, WebSocketFactory>();
 builder.Services.AddSingleton(TimeProvider.System);
 
@@ -23,4 +25,5 @@ builder.Services.AddDiscordGatewayClient(static (client) =>
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
+
 await host.RunAsync();

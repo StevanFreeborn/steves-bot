@@ -10,7 +10,7 @@ internal static class Extensions
         var discordOptions = sp.GetRequiredService<DiscordClientOptions>();
         c.BaseAddress = new Uri(discordOptions.ApiUrl);
         c.DefaultRequestHeaders.Authorization = new("Bot", discordOptions.AppToken);
-        c.DefaultRequestHeaders.Add("User-Agent", $"DiscordBot (https://github.com/StevanFreeborn/steves-bot, 0.0.0)");
+        c.DefaultRequestHeaders.Add("User-Agent", $"DiscordBot (https://github.com/StevanFreeborn/steves-bot, {Instrumentation.SourceVersion})");
       })
       .AddStandardResilienceHandler();
 
