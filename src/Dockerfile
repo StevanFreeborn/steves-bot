@@ -1,9 +1,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS base
 WORKDIR /app
-COPY *.csproj ./
-COPY ../Directory.Build.props ./
+COPY ./StevesBot.Worker/StevesBot.Worker.csproj ./
+COPY ./Directory.Build.props ./
 RUN dotnet restore
-COPY . .
+COPY ./StevesBot.Worker/. ./
 
 FROM base AS publish-stage
 RUN dotnet publish -c Release -o dist
