@@ -11,4 +11,3 @@ internal sealed record ReadyDiscordEvent : DispatchDiscordEvent
     Type = DiscordEventTypes.Ready;
   }
 }
-

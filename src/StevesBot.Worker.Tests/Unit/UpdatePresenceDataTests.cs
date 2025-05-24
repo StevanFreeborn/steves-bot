@@ -12,7 +12,7 @@ public class UpdatePresenceDataTests
     updatePresenceData.Status.Should().Be(PresenceStatus.Online);
     updatePresenceData.Afk.Should().BeFalse();
   }
-  
+
   [Fact]
   public void Constructor_WhenCalledAndPropertiesAreInitialized_ItShouldCreateAnInstance()
   {
@@ -20,7 +20,7 @@ public class UpdatePresenceDataTests
     var activities = new List<Activity>();
     var status = "some_made_up_status";
     var afk = true;
-    
+
     var updatePresenceData = new UpdatePresenceData()
     {
       Since = since,
@@ -28,7 +28,7 @@ public class UpdatePresenceDataTests
       Status = status,
       Afk = afk,
     };
-    
+
     updatePresenceData.Since.Should().Be(since);
     updatePresenceData.Activities.Should().BeSameAs(activities);
     updatePresenceData.Status.Should().Be(status);
