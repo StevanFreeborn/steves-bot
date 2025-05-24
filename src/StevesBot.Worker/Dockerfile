@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS base
 WORKDIR /app
 COPY *.csproj ./
+COPY ../Directory.Build.props ./
 RUN dotnet restore
 COPY . .
 
