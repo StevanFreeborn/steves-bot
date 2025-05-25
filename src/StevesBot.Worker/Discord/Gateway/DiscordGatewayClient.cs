@@ -145,6 +145,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
         while (_linkedReceiveMessageCts?.IsCancellationRequested is false)
         {
+          var messageString = new StringBuilder();
           using var memoryStream = new MemoryStream();
           WebSocketReceiveResult result;
 
@@ -174,6 +175,9 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
             if (result.MessageType is WebSocketMessageType.Text)
             {
+              var message = Encoding.UTF8.GetString(messageBuffer, 0, result.Count);
+              messageString.Append(message);
+
               await memoryStream.WriteAsync(messageBuffer.AsMemory(0, result.Count), _linkedReceiveMessageCts.Token);
             }
 
@@ -183,7 +187,8 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
           memoryStream.Seek(0, SeekOrigin.Begin);
 
-          var msg = Encoding.UTF8.GetString(messageBuffer, 0, result.Count);
+          var msgFromMemoryStream = Encoding.UTF8.GetString(memoryStream.ToArray());
+          var msgFromStringBuilder = messageString.ToString();
 
           DiscordEvent? e = null;
 
@@ -197,7 +202,8 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
           }
           catch (JsonException ex)
           {
-            _logger.LogError(ex, "Failed to deserialize message: {Message}", msg);
+            _logger.LogError(ex, "Failed to deserialize message: {Message}", msgFromMemoryStream);
+            _logger.LogDebug("Message from StringBuilder: {Message}", msgFromStringBuilder);
           }
 
 
@@ -241,7 +247,16 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
         _logger.LogInformation("Hello event received");
         await SetHeartbeatIntervalAsync(he.Data.HeartbeatInterval, cancellationToken);
         await StartHeartbeatAsync(cancellationToken);
-        await IdentifyAsync(cancellationToken);
+        if (_canResume is false)
+        {
+          _logger.LogInformation("Sending identify event");
+          await IdentifyAsync(cancellationToken);
+        }
+        else
+        {
+          _logger.LogInformation("Sending resume event");
+          await SendResumeAsync(cancellationToken);
+        }
         break;
       case HeartbeatAckDiscordEvent:
         _logger.LogInformation("Heartbeat acknowledged event received");
@@ -399,8 +414,6 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       await SetWebSocketAsync(_webSocketFactory.Create(), cancellationToken);
       await ConnectWithResumeUrlAsync(cancellationToken);
       await StartReceiveMessagesAsync(cancellationToken);
-      await StartHeartbeatAsync(cancellationToken);
-      await SendResumeAsync(cancellationToken);
       return;
     }
 
