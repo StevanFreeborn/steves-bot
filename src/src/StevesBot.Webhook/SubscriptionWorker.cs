@@ -25,7 +25,7 @@ internal sealed class SubscriptionWorker(
     _logger.LogInformation("Subscribing to notifications");
 
     await _pubSubClient.SubscribeAsync(
-      _options.CallbackBaseUrl,
+      _options.CallbackUrl,
       _options.TopicUrl,
       cancellationToken
     );

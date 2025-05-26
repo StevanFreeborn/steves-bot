@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Mvc;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
@@ -6,7 +8,9 @@ builder.Services
   .ValidateDataAnnotations();
 
 builder.Services
-  .AddHttpClient<IPubSubClient, PubSubClient>()
+  .AddHttpClient<IPubSubClient, PubSubClient>(
+    static c => c.BaseAddress = new("https://pubsubhubbub.appspot.com")
+  )
   .AddStandardResilienceHandler();
 
 builder.Services.AddOpenApi();
@@ -21,5 +25,34 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+const string ytCallback = "yt-callback";
+
+app.MapGet(
+  ytCallback,
+  static (
+    [FromQuery(Name = "hub.mode")] string mode,
+    [FromQuery(Name = "hub.topic")] string topic,
+    [FromQuery(Name = "hub.challenge")] string challenge,
+    [FromServices] IOptions<SubscriptionOptions> subOptions,
+    [FromServices] ILogger<Program> logger
+  ) =>
+  {
+    if (topic != subOptions.Value.TopicUrl)
+    {
+      logger.LogInformation("Received verification request for wrong topic: {Topic}", topic);
+      return Results.NotFound();
+    }
+
+    return Results.Text(challenge);
+  }
+);
+
+// TODO: Implement logic to do the following:
+// - extract video id from notification
+// - identify video as a stream or not
+// - if is stream create discord message
+// - if not then just log a message
+app.MapPost(ytCallback, static () => "hello");
 
 app.Run();
