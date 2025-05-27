@@ -9,7 +9,8 @@ internal static class VerifySubscriptionHandler
     [FromQuery(Name = "hub.challenge")] string? challenge,
     [FromQuery(Name = "hub.lease_seconds")] string? leaseSeconds,
     [FromServices] IOptions<SubscriptionOptions> subOptions,
-    [FromServices] ILogger<Program> logger
+    [FromServices] ILogger<Program> logger,
+    [FromServices] ConcurrentQueue<SubscribeTask> subscriptionQueue
   )
   {
     if (mode is "denied")
@@ -26,23 +27,31 @@ internal static class VerifySubscriptionHandler
 
     if (mode is "subscribe")
     {
-      // TODO: If it is a subscription request
-      // we need to queue up a resubscription
-      // request to be executed just before
-      // the hub.lease expires.
       logger.LogInformation(
         "Received subscription request for topic: {Topic}, challenge: {Challenge}, lease: {LeaseSeconds}",
         topic,
         challenge,
         leaseSeconds
       );
+
+      if (string.IsNullOrWhiteSpace(leaseSeconds) || !long.TryParse(leaseSeconds, out var parsedSeconds))
+      {
+        logger.LogWarning("Invalid or missing lease_seconds parameter: {LeaseSeconds}", leaseSeconds);
+        return Results.BadRequest("Invalid lease_seconds parameter");
+      }
+
+      var task = new SubscribeTask
+      {
+        CallbackUrl = subOptions.Value.CallbackUrl,
+        TopicUrl = topic,
+        ExpiresAt = DateTime.UtcNow.AddSeconds(parsedSeconds),
+      };
+
+      subscriptionQueue.Enqueue(task);
     }
 
     if (mode is "unsubscribe")
     {
-      // TODO: If it is a unsubscription request
-      // we need to queue up an ubsubscription
-      // request to be executed immediately
       logger.LogInformation(
         "Received unsubscription request for topic: {Topic}, challenge: {Challenge}",
         topic,
