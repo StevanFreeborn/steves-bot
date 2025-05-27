@@ -8,5 +8,8 @@ internal sealed record YouTubeVideo
   [JsonPropertyName("liveStreamingDetails")]
   public YouTubeLiveStreamingDetails? LiveStreamingDetails { get; init; }
 
-  public bool IsStream => LiveStreamingDetails is not null;
+  [JsonPropertyName("snippet")]
+  public YouTubeSnippet Snippet { get; init; } = new();
+
+  public bool IsLiveStream => LiveStreamingDetails is not null && Snippet.LiveBroadcastContent is "live";
 }

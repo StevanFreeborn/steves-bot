@@ -85,7 +85,7 @@ app.MapPost(ytCallback, static async (HttpContext context, [FromServices] ILogge
     return Results.NotFound();
   }
 
-  if (video.IsStream is false)
+  if (video.IsLiveStream is false)
   {
     logger.LogInformation("Video ID {VideoId} is not a live stream.", videoId);
     return Results.Ok();
