@@ -1,12 +1,15 @@
-
 namespace StevesBot.Webhook.YouTube;
 
-internal sealed class PubSubClient(HttpClient httpClient) : IPubSubClient
+internal sealed class PubSubClient(
+  HttpClient httpClient,
+  ILogger<PubSubClient> logger
+) : IPubSubClient
 {
   private const string SubscribeEndpoint = "subscribe";
   private readonly HttpClient _httpClient = httpClient;
+  private readonly ILogger<PubSubClient> _logger = logger;
 
-  public async Task SubscribeAsync(string callbackUrl, string topicUrl, CancellationToken cancellationToken = default)
+  public async Task<bool> SubscribeAsync(string callbackUrl, string topicUrl, CancellationToken cancellationToken = default)
   {
     var uri = new Uri(SubscribeEndpoint, UriKind.Relative);
     var formFields = new Dictionary<string, string>()
@@ -21,12 +24,16 @@ internal sealed class PubSubClient(HttpClient httpClient) : IPubSubClient
 
     if (response.IsSuccessStatusCode is false)
     {
-      throw new PubSubClientException("Failed to subscribe");
-    }
-  }
+      var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
-  public Task UnsubscribeAsync(string callbackUrl, string topicUrl, CancellationToken cancellationToken = default)
-  {
-    throw new NotImplementedException();
+      _logger.LogDebug(
+        "Failed to subscribe to topic {TopicUrl} with callback {CallbackUrl}: {ErrorMessage}",
+        topicUrl,
+        callbackUrl,
+        responseContent
+      );
+    }
+
+    return response.IsSuccessStatusCode;
   }
 }

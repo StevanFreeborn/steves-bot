@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Mvc;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
@@ -28,25 +26,7 @@ app.UseHttpsRedirection();
 
 const string ytCallback = "yt-callback";
 
-app.MapGet(
-  ytCallback,
-  static (
-    [FromQuery(Name = "hub.mode")] string mode,
-    [FromQuery(Name = "hub.topic")] string topic,
-    [FromQuery(Name = "hub.challenge")] string challenge,
-    [FromServices] IOptions<SubscriptionOptions> subOptions,
-    [FromServices] ILogger<Program> logger
-  ) =>
-  {
-    if (topic != subOptions.Value.TopicUrl)
-    {
-      logger.LogInformation("Received verification request for wrong topic: {Topic}", topic);
-      return Results.NotFound();
-    }
-
-    return Results.Text(challenge);
-  }
-);
+app.MapGet(ytCallback, VerifySubscriptionHandler.HandleAsync);
 
 // TODO: Implement logic to do the following:
 // - extract video id from notification

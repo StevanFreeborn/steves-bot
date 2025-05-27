@@ -1,4 +1,4 @@
-namespace StevesBot.Webhook;
+namespace StevesBot.Webhook.YouTube;
 
 internal sealed class SubscriptionWorker(
   ILogger<SubscriptionWorker> logger,
@@ -24,11 +24,19 @@ internal sealed class SubscriptionWorker(
   {
     _logger.LogInformation("Subscribing to notifications");
 
-    await _pubSubClient.SubscribeAsync(
+    var isSubscribed = await _pubSubClient.SubscribeAsync(
       _options.CallbackUrl,
       _options.TopicUrl,
       cancellationToken
     );
+
+    if (isSubscribed)
+    {
+      _logger.LogInformation("Successfully subscribed to notifications");
+      return;
+    }
+
+    _logger.LogWarning("Failed to subscribe to notifications");
   }
 
 
