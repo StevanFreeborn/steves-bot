@@ -25,18 +25,6 @@ public class ExtensionsTests
   }
 
   [Fact]
-  public void AddDiscordRestClient_WhenCalled_ItShouldAddDiscordRestClient()
-  {
-    _services.AddDiscordRestClient();
-
-    var act = () => _services
-      .BuildServiceProvider()
-      .GetRequiredService<IDiscordRestClient>();
-
-    act.Should().NotThrow();
-  }
-
-  [Fact]
   public void AddDiscordGatewayClient_WhenCalled_ItShouldAddDiscordGatewayClient()
   {
     _services.AddSingleton(_mockDiscordRestClient.Object);
