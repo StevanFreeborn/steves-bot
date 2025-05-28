@@ -1,10 +1,5 @@
-using StevesBot.Library.Discord.Rest;
-using StevesBot.Library.Discord.Rest.Requests;
+namespace StevesBot.Webhook.YouTube.Handlers;
 
-namespace StevesBot.Webhook.Handlers;
-
-// TODO: Implement logic to do the following:
-// - if is stream create discord message
 internal static class NotificationHandler
 {
   public static async Task<IResult> HandleAsync(
@@ -12,6 +7,7 @@ internal static class NotificationHandler
     [FromServices] ILogger<Program> logger,
     [FromServices] IYouTubeDataApiClient youTubeDataApiClient,
     [FromServices] IDiscordRestClient discordRestClient,
+    [FromServices] IOptionsMonitor<DiscordNotificationOptions> discordNotificationOptions,
     CancellationToken cancellationToken
   )
   {
@@ -43,13 +39,22 @@ internal static class NotificationHandler
       return Results.Ok();
     }
 
-    logger.LogInformation("Video ID {VideoId} is a live stream.", videoId);
+    logger.LogInformation(
+      "Video ID {VideoId} is a live stream. Creating discord message in channel {ChannelId}",
+      videoId,
+      discordNotificationOptions.CurrentValue.ChannelId
+    );
+
+    var msg = string.Format(
+      CultureInfo.InvariantCulture,
+      discordNotificationOptions.CurrentValue.MessageFormat,
+      videoId
+    );
 
     await discordRestClient.CreateMessageAsync(
-      channelId: "1372680179121524778",
+      channelId: discordNotificationOptions.CurrentValue.ChannelId,
       request: new CreateMessageRequest(
-        Content: "@everyone Stevan is trying to be a streamer again! " +
-                 $"Check out the stream here: https://www.youtube.com/watch?v={videoId}",
+        Content: msg,
         MessageReference: null
       ),
       cancellationToken: cancellationToken

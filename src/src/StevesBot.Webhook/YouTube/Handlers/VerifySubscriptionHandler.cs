@@ -1,4 +1,4 @@
-namespace StevesBot.Webhook.Handlers;
+namespace StevesBot.Webhook.YouTube.Handlers;
 
 internal static class VerifySubscriptionHandler
 {
