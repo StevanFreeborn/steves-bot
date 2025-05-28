@@ -1,4 +1,4 @@
-namespace StevesBot.Worker.Telemetry;
+namespace StevesBot.Library.Telemetry;
 
 internal sealed class SeqOptions
 {

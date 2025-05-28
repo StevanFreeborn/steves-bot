@@ -1,6 +1,8 @@
-namespace StevesBot.Worker.Discord.Shared;
+using System.Text.Json.Serialization;
 
-internal sealed record DiscordMessage
+namespace StevesBot.Library.Discord.Common;
+
+public sealed record DiscordMessage
 {
   [JsonPropertyName("id")]
   public string Id { get; init; } = string.Empty;

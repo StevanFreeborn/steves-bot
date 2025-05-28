@@ -1,6 +1,6 @@
-namespace StevesBot.Worker.Discord.Rest;
+namespace StevesBot.Library.Discord.Rest;
 
-internal sealed class DiscordRestClientException : Exception
+public sealed class DiscordRestClientException : Exception
 {
   public DiscordRestClientException()
   {

@@ -1,3 +1,6 @@
+using StevesBot.Library.Discord.Rest;
+using StevesBot.Library.Discord.Rest.Requests;
+
 namespace StevesBot.Webhook.Handlers;
 
 // TODO: Implement logic to do the following:
@@ -7,11 +10,13 @@ internal static class NotificationHandler
   public static async Task<IResult> HandleAsync(
     HttpContext context,
     [FromServices] ILogger<Program> logger,
-    [FromServices] IYouTubeDataApiClient youTubeDataApiClient
+    [FromServices] IYouTubeDataApiClient youTubeDataApiClient,
+    [FromServices] IDiscordRestClient discordRestClient,
+    CancellationToken cancellationToken
   )
   {
     using StreamReader stream = new(context.Request.Body);
-    var body = await stream.ReadToEndAsync();
+    var body = await stream.ReadToEndAsync(cancellationToken);
 
     var videoIdRegex = VideoIdRegex.Regex();
     var match = videoIdRegex.Match(body);
@@ -24,7 +29,7 @@ internal static class NotificationHandler
 
     var videoId = match.Groups[1].Value;
     var parts = new string[] { "liveStreamingDetails", "snippet" };
-    var video = await youTubeDataApiClient.GetVideoByIdAsync(videoId, parts);
+    var video = await youTubeDataApiClient.GetVideoByIdAsync(videoId, parts, cancellationToken);
 
     if (video is null)
     {
@@ -39,6 +44,16 @@ internal static class NotificationHandler
     }
 
     logger.LogInformation("Video ID {VideoId} is a live stream.", videoId);
+
+    await discordRestClient.CreateMessageAsync(
+      channelId: "1372680179121524778",
+      request: new CreateMessageRequest(
+        Content: "@everyone Stevan is trying to be a streamer again! " +
+                 $"Check out the stream here: https://www.youtube.com/watch?v={videoId}",
+        MessageReference: null
+      ),
+      cancellationToken: cancellationToken
+    );
 
     return Results.Ok();
   }

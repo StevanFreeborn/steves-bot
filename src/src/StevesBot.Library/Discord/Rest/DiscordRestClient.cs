@@ -1,6 +1,14 @@
-namespace StevesBot.Worker.Discord.Rest;
+using System.Net.Http.Json;
 
-internal sealed class DiscordRestClient : IDiscordRestClient
+using Microsoft.Extensions.Logging;
+
+using StevesBot.Library.Discord.Rest.Requests;
+using StevesBot.Library.Discord.Rest.Responses;
+using StevesBot.Library.Discord.Common;
+
+namespace StevesBot.Library.Discord.Rest;
+
+public sealed class DiscordRestClient : IDiscordRestClient
 {
   private readonly ILogger<DiscordRestClient> _logger;
   private readonly HttpClient _httpClient;

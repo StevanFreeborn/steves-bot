@@ -1,3 +1,5 @@
+using StevesBot.Library.Discord.Common;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
@@ -40,6 +42,21 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ConcurrentQueue<SubscribeTask>>();
 builder.Services.AddHostedService<SubscriptionWorker>();
+
+// TODO: This probably should be
+// moved into the AddDiscordRestClient extension method.
+// and we should probably just take the dependency
+// on IOptions<DiscordClientOptions> in DiscordRestClient
+builder.Services.AddOptions<DiscordClientOptions>()
+  .BindConfiguration(nameof(DiscordClientOptions));
+
+builder.Services.AddSingleton(static sp =>
+{
+  var options = sp.GetRequiredService<IOptions<DiscordClientOptions>>().Value;
+  return options;
+});
+
+builder.Services.AddDiscordRestClient();
 
 var app = builder.Build();
 

@@ -1,6 +1,6 @@
-namespace StevesBot.Worker.Discord.Shared;
+namespace StevesBot.Library.Discord.Common;
 
-internal sealed class DiscordClientOptions
+public sealed class DiscordClientOptions
 {
   public string ApiUrl { get; init; } = string.Empty;
   public string AppToken { get; init; } = string.Empty;

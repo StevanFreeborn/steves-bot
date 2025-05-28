@@ -6,6 +6,7 @@ global using System.Text.RegularExpressions;
 global using Microsoft.AspNetCore.Mvc;
 global using Microsoft.Extensions.Options;
 
+global using StevesBot.Library.Discord;
 global using StevesBot.Webhook.Handlers;
 global using StevesBot.Webhook.YouTube;
 global using StevesBot.Webhook.YouTube.Data;

@@ -1,6 +1,8 @@
-namespace StevesBot.Worker.Discord.Shared;
+using System.Text.Json.Serialization;
 
-internal sealed record DiscordMessageReference(
+namespace StevesBot.Library.Discord.Common;
+
+public sealed record DiscordMessageReference(
   [property: JsonPropertyName("type")] int Type,
   [property: JsonPropertyName("message_id")] string MessageId,
   [property: JsonPropertyName("channel_id")] string ChannelId,
