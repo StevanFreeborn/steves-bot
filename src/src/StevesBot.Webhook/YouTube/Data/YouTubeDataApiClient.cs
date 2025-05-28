@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.WebUtilities;
-
 namespace StevesBot.Webhook.YouTube.Data;
 
 internal sealed class YouTubeDataApiClient(

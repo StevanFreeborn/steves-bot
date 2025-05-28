@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace StevesBot.Webhook.YouTube.Data;
 
 internal sealed record YouTubePageInfo
