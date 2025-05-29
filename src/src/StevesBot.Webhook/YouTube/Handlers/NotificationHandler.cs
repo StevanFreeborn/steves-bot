@@ -8,7 +8,7 @@ internal static class NotificationHandler
     [FromServices] IYouTubeDataApiClient youTubeDataApiClient,
     [FromServices] IDiscordRestClient discordRestClient,
     [FromServices] IOptionsMonitor<DiscordNotificationOptions> discordNotificationOptions,
-    [FromServices] LastPostedStreamStore lastPostedStream,
+    [FromServices] ILastPostedStreamStore lastPostedStream,
     CancellationToken cancellationToken
   )
   {

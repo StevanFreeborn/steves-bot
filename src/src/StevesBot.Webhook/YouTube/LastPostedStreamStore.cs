@@ -1,11 +1,16 @@
 namespace StevesBot.Webhook.YouTube;
 
-internal class LastPostedStreamStore
+internal class LastPostedStreamStore : ILastPostedStreamStore
 {
-  public string Value { get; private set; } = string.Empty;
+  private string _value = string.Empty;
 
   public void SetValue(string value)
   {
-    Value = value;
+    _value = value;
+  }
+
+  public bool HasValue(string value)
+  {
+    return _value.Equals(value, StringComparison.OrdinalIgnoreCase);
   }
 }

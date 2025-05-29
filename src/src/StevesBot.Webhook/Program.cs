@@ -41,7 +41,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ConcurrentQueue<SubscribeTask>>();
 builder.Services.AddHostedService<SubscriptionWorker>();
 
-builder.Services.AddSingleton<LastPostedStreamStore>();
+builder.Services.AddSingleton<ILastPostedStreamStore, LastPostedStreamStore>();
 
 builder.Services.AddOptionsWithValidateOnStart<DiscordNotificationOptions>()
   .BindConfiguration(nameof(DiscordNotificationOptions))
