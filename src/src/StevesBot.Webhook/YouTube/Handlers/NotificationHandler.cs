@@ -8,6 +8,7 @@ internal static class NotificationHandler
     [FromServices] IYouTubeDataApiClient youTubeDataApiClient,
     [FromServices] IDiscordRestClient discordRestClient,
     [FromServices] IOptionsMonitor<DiscordNotificationOptions> discordNotificationOptions,
+    [FromServices] LastPostedStreamStore lastPostedStream,
     CancellationToken cancellationToken
   )
   {
@@ -38,6 +39,14 @@ internal static class NotificationHandler
       logger.LogInformation("Video ID {VideoId} is not a live stream.", videoId);
       return Results.Ok();
     }
+
+    if (lastPostedStream.Value == videoId)
+    {
+      logger.LogInformation("Video ID {VideoId} has already been posted. Skipping notification.", videoId);
+      return Results.Ok();
+    }
+
+    lastPostedStream.SetValue(videoId);
 
     logger.LogInformation(
       "Video ID {VideoId} is a live stream. Creating discord message in channel {ChannelId}",
