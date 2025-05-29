@@ -40,7 +40,7 @@ internal static class NotificationHandler
       return Results.Ok();
     }
 
-    if (lastPostedStream.Value == videoId)
+    if (lastPostedStream.HasValue(videoId))
     {
       logger.LogInformation("Video ID {VideoId} has already been posted. Skipping notification.", videoId);
       return Results.Ok();

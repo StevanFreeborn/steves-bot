@@ -1,4 +1,4 @@
-namespace StevesBot.Worker.Tests.Unit;
+namespace StevesBot.Library.Tests.Unit;
 
 public class DiscordRestClientExceptionTests
 {

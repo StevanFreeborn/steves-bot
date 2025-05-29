@@ -1,6 +1,4 @@
-using Microsoft.AspNetCore.Http.HttpResults;
-
-namespace StevesBot.Worker.Tests.Unit;
+namespace StevesBot.Library.Tests.Unit;
 
 public sealed class DiscordRestClientTests : IDisposable
 {

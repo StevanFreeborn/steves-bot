@@ -1,5 +1,7 @@
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddTelemetry(static () => new StevesBotWebhookInstrumentation());
+
 builder.Services
   .AddOptionsWithValidateOnStart<SubscriptionOptions>()
   .BindConfiguration(nameof(SubscriptionOptions))

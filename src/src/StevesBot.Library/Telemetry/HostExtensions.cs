@@ -11,11 +11,15 @@ namespace StevesBot.Library.Telemetry;
 
 public static class HostExtensions
 {
-  public static HostApplicationBuilder AddTelemetry(this HostApplicationBuilder builder)
+  public static IHostApplicationBuilder AddTelemetry(this IHostApplicationBuilder builder, Func<IInstrumentation> instrumentationFunc)
   {
     ArgumentNullException.ThrowIfNull(builder);
 
-    builder.Services.AddSingleton<StevesBotInstrumentation>();
+    builder.Services.AddSingleton(instrumentationFunc);
+
+    var instrumentation = builder.Services
+      .BuildServiceProvider()
+      .GetRequiredService<IInstrumentation>();
 
     var seq = new SeqOptions();
     builder.Configuration.GetSection(nameof(SeqOptions)).Bind(seq);
@@ -28,11 +32,11 @@ public static class HostExtensions
     builder.Services.AddOpenTelemetry()
       .ConfigureResource(resource =>
       {
-        resource.AddService(StevesBotInstrumentation.SourceName, StevesBotInstrumentation.SourceVersion);
+        resource.AddService(instrumentation.SourceName, instrumentation.SourceVersion);
         resource.AddAttributes(new Dictionary<string, object>
         {
-          ["service.name"] = StevesBotInstrumentation.SourceName,
-          ["service.version"] = StevesBotInstrumentation.SourceVersion,
+          ["service.name"] = instrumentation.SourceName,
+          ["service.version"] = instrumentation.SourceVersion,
           ["service.instance.id"] = Environment.MachineName,
           ["service.namespace"] = "stevesbot",
           ["service.environment"] = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "production",
@@ -49,7 +53,7 @@ public static class HostExtensions
       })
       .WithTracing(tb =>
       {
-        tb.AddSource(StevesBotInstrumentation.SourceName);
+        tb.AddSource(instrumentation.SourceName);
         tb.AddAspNetCoreInstrumentation();
         tb.AddHttpClientInstrumentation();
         tb.AddOtlpExporter(o =>
