@@ -1,5 +1,7 @@
 namespace StevesBot.Webhook.YouTube;
 
-internal interface ILastPostedStreamStore : IStore<string>
+internal interface ILastPostedStreamStore
 {
+  void SetValue(string value);
+  bool HasValue(string value);
 }

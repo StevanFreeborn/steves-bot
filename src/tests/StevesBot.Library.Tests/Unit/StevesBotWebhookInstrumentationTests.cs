@@ -19,7 +19,7 @@ public sealed class StevesBotWebhookInstrumentationTests : IDisposable
   [Fact]
   public void Constructor_WhenCalled_ItShouldReturnInstance()
   {
-    using var result = new StevesBotWorkerInstrumentation();
+    using var result = new StevesBotWebhookInstrumentation();
     using var expectedSource = new ActivitySource(_instrumentation.SourceName, _instrumentation.SourceVersion);
 
     result.Source.Should().BeEquivalentTo(expectedSource);

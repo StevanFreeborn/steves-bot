@@ -14,12 +14,7 @@ public static class HostExtensions
   public static IHostApplicationBuilder AddTelemetry(this IHostApplicationBuilder builder, Func<IInstrumentation> instrumentationFunc)
   {
     ArgumentNullException.ThrowIfNull(builder);
-
-    builder.Services.AddSingleton(instrumentationFunc);
-
-    var instrumentation = builder.Services
-      .BuildServiceProvider()
-      .GetRequiredService<IInstrumentation>();
+    ArgumentNullException.ThrowIfNull(instrumentationFunc);
 
     var seq = new SeqOptions();
     builder.Configuration.GetSection(nameof(SeqOptions)).Bind(seq);
@@ -28,6 +23,12 @@ public static class HostExtensions
     {
       return builder;
     }
+
+    builder.Services.AddSingleton(instrumentationFunc());
+
+    var instrumentation = builder.Services
+      .BuildServiceProvider()
+      .GetRequiredService<IInstrumentation>();
 
     builder.Services.AddOpenTelemetry()
       .ConfigureResource(resource =>

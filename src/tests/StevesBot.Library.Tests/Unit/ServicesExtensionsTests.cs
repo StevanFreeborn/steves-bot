@@ -7,10 +7,12 @@ public class ServicesExtensionsTests
     ApiUrl = "https://test.com",
     AppToken = "test_token",
   };
+  private readonly Mock<IInstrumentation> _instrumentationMock = new();
   private readonly ServiceCollection _services = new();
 
   public ServicesExtensionsTests()
   {
+    _services.AddSingleton(_instrumentationMock.Object);
     _services.AddSingleton(_discordClientOptions);
   }
 

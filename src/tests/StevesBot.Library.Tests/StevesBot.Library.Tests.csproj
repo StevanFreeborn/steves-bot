@@ -25,7 +25,7 @@
     <CollectCoverage>true</CollectCoverage>
     <CoverletOutput>./TestResults/Coverage/</CoverletOutput>
     <CoverletOutputFormat>cobertura</CoverletOutputFormat>
-    <Include>[StevesBot.Lib]*</Include>
+    <Include>[StevesBot.Library]*</Include>
   </PropertyGroup>
 
   <Target Name="GenerateHtmlCoverageReport" AfterTargets="GenerateCoverageResultAfterTest">
