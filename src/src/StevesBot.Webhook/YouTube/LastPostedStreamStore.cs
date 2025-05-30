@@ -6,11 +6,13 @@ internal class LastPostedStreamStore : ILastPostedStreamStore
 
   public void SetValue(string value)
   {
+    ArgumentNullException.ThrowIfNull(value);
     _value = value;
   }
 
   public bool HasValue(string value)
   {
+    ArgumentNullException.ThrowIfNull(value);
     return _value.Equals(value, StringComparison.OrdinalIgnoreCase);
   }
 }
