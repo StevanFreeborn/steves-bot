@@ -17,9 +17,10 @@ public static class ServicesExtensions
         c.BaseAddress = new Uri(discordOptions.ApiUrl);
         c.DefaultRequestHeaders.Authorization = new("Bot", discordOptions.AppToken);
 
-        var instrumentation = sp.GetRequiredService<IInstrumentation>();
+        var instrumentation = sp.GetService<IInstrumentation>();
+        var version = instrumentation?.SourceVersion ?? "0.0.0";
 
-        var userAgentString = $"DiscordBot (https://github.com/StevanFreeborn/steves-bot, {instrumentation.SourceVersion})";
+        var userAgentString = $"DiscordBot (https://github.com/StevanFreeborn/steves-bot, {version})";
         c.DefaultRequestHeaders.Add("User-Agent", userAgentString);
       })
       .AddStandardResilienceHandler();
