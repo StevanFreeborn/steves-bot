@@ -9,7 +9,7 @@ public class SubscribeTaskTests
 
     task.CallbackUrl.Should().BeEmpty();
     task.TopicUrl.Should().BeEmpty();
-    task.ExpiresAt.Should().Be(DateTime.MinValue);
+    task.ExpiresAt.Should().Be(DateTimeOffset.MinValue);
   }
 
   [Fact]
@@ -23,7 +23,7 @@ public class SubscribeTaskTests
     {
       CallbackUrl = callbackUrl,
       TopicUrl = topicUrl,
-      ExpiresAt = expiresAt
+      ExpiresAt = expiresAt,
     };
 
     task.CallbackUrl.Should().Be(callbackUrl);

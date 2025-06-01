@@ -27,7 +27,7 @@
     <CoverletOutput>./TestResults/Coverage/</CoverletOutput>
     <CoverletOutputFormat>cobertura</CoverletOutputFormat>
     <Include>[StevesBot.Webhook]*</Include>
-    <ExcludeByFile>**/Program.cs,**/Worker.cs</ExcludeByFile>
+    <ExcludeByFile>**/Program.cs,**/SubscriptionWorker.cs</ExcludeByFile>
   </PropertyGroup>
 
   <Target Name="GenerateHtmlCoverageReport" AfterTargets="GenerateCoverageResultAfterTest">
