@@ -9,7 +9,7 @@ internal static class NotificationHandler
     [FromServices] IDiscordRestClient discordRestClient,
     [FromServices] IOptionsMonitor<DiscordNotificationOptions> discordNotificationOptions,
     [FromServices] ILastPostedStreamStore lastPostedStream,
-    CancellationToken cancellationToken
+    CancellationToken cancellationToken = default
   )
   {
     using StreamReader stream = new(context.Request.Body);
