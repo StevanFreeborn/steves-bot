@@ -27,6 +27,7 @@
     <CoverletOutput>./TestResults/Coverage/</CoverletOutput>
     <CoverletOutputFormat>cobertura</CoverletOutputFormat>
     <Include>[StevesBot.Webhook]*</Include>
+    <Exclude>[StevesBot.Webhook]System.Text.RegularExpressions.Generated.*</Exclude>
     <ExcludeByFile>**/Program.cs,**/SubscriptionWorker.cs</ExcludeByFile>
   </PropertyGroup>
 
