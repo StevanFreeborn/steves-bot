@@ -7,12 +7,12 @@ public class HostExtensionsTests
   {
     var builder = WebApplication.CreateBuilder();
 
-    builder.AddTelemetry(static () => new StevesBotWebhookInstrumentation());
+    builder.AddTelemetry(static () => new TestInstrumentation());
 
     var app = builder.Build();
 
     app.Services
-      .GetService<StevesBotWebhookInstrumentation>()
+      .GetService<TestInstrumentation>()
       .Should()
       .BeNull();
 
@@ -42,7 +42,7 @@ public class HostExtensionsTests
 
     builder.Configuration.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(json)));
 
-    builder.AddTelemetry(static () => new StevesBotWebhookInstrumentation());
+    builder.AddTelemetry(static () => new TestInstrumentation());
 
     var app = builder.Build();
 
@@ -61,5 +61,17 @@ public class HostExtensionsTests
       .GetService<TracerProvider>()
       .Should()
       .NotBeNull();
+  }
+
+  private class TestInstrumentation : IInstrumentation
+  {
+    public string SourceName { get; } = "TestSource";
+    public string SourceVersion { get; } = "1.0.0";
+    public ActivitySource Source { get; } = new ActivitySource("TestSource", "1.0.0");
+
+    public void Dispose()
+    {
+      Source.Dispose();
+    }
   }
 }

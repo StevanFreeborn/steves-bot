@@ -1,4 +1,4 @@
-namespace StevesBot.Library.Tests.Unit;
+namespace StevesBot.Worker.Tests.Unit;
 
 public sealed class StevesBotWorkerInstrumentationTests : IDisposable
 {

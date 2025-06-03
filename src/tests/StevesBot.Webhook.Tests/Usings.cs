@@ -1,4 +1,5 @@
 global using System.Collections.Concurrent;
+global using System.Diagnostics;
 global using System.Net;
 global using System.Text;
 
@@ -13,6 +14,7 @@ global using RichardSzalay.MockHttp;
 
 global using StevesBot.Library.Discord.Rest;
 global using StevesBot.Library.Discord.Rest.Requests;
+global using StevesBot.Webhook.Telemetry;
 global using StevesBot.Webhook.YouTube;
 global using StevesBot.Webhook.YouTube.Data;
 global using StevesBot.Webhook.YouTube.Handlers;

@@ -1,8 +1,8 @@
 using System.Diagnostics;
 
-namespace StevesBot.Library.Telemetry;
+namespace StevesBot.Worker.Telemetry;
 
-public sealed class StevesBotWorkerInstrumentation : IInstrumentation
+internal sealed class StevesBotWorkerInstrumentation : IInstrumentation
 {
   private const string SourceNameValue = "StevesBot.Worker";
   private const string SourceVersionValue = "0.0.0";

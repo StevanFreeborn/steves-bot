@@ -1,8 +1,8 @@
 using System.Diagnostics;
 
-namespace StevesBot.Library.Telemetry;
+namespace StevesBot.Webhook.Telemetry;
 
-public sealed class StevesBotWebhookInstrumentation : IInstrumentation
+internal sealed class StevesBotWebhookInstrumentation : IInstrumentation
 {
   private const string SourceNameValue = "StevesBot.Webhook";
   private const string SourceVersionValue = "0.0.0";

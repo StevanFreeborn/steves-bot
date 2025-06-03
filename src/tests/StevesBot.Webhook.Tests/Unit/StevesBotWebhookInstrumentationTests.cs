@@ -1,4 +1,4 @@
-namespace StevesBot.Library.Tests.Unit;
+namespace StevesBot.Webhook.Tests.Unit;
 
 public sealed class StevesBotWebhookInstrumentationTests : IDisposable
 {
