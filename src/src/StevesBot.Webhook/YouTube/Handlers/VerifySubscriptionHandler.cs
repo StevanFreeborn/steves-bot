@@ -10,7 +10,8 @@ internal static class VerifySubscriptionHandler
     [FromQuery(Name = "hub.lease_seconds")] string? leaseSeconds,
     [FromServices] IOptions<SubscriptionOptions> subOptions,
     [FromServices] ILogger<Program> logger,
-    [FromServices] ConcurrentQueue<SubscribeTask> subscriptionQueue
+    [FromServices] ConcurrentQueue<SubscribeTask> subscriptionQueue,
+    [FromServices] TimeProvider timeProvider
   )
   {
     if (mode is "denied")
@@ -44,7 +45,7 @@ internal static class VerifySubscriptionHandler
       {
         CallbackUrl = subOptions.Value.CallbackUrl,
         TopicUrl = topic,
-        ExpiresAt = DateTime.UtcNow.AddSeconds(parsedSeconds),
+        ExpiresAt = timeProvider.GetUtcNow().AddSeconds(parsedSeconds),
       };
 
       subscriptionQueue.Enqueue(task);
