@@ -67,7 +67,7 @@ if (app.Environment.IsDevelopment())
 
 const string ytCallback = "yt-callback";
 
-app.MapGet(ytCallback, VerifySubscriptionHandler.HandleAsync);
+app.MapGet(ytCallback, VerifySubscriptionHandler.Handle);
 app.MapPost(ytCallback, NotificationHandler.HandleAsync);
 
 app.Run();

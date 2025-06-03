@@ -2,7 +2,7 @@ namespace StevesBot.Webhook.YouTube.Handlers;
 
 internal static class VerifySubscriptionHandler
 {
-  public static IResult HandleAsync(
+  public static IResult Handle(
     [FromQuery(Name = "hub.mode")] string mode,
     [FromQuery(Name = "hub.topic")] string topic,
     [FromQuery(Name = "hub.reason")] string? reason,
@@ -19,7 +19,7 @@ internal static class VerifySubscriptionHandler
       return Results.BadRequest("Subscription denied");
     }
 
-    if (topic != subOptions.Value.TopicUrl)
+    if (string.Equals(topic, subOptions.Value.TopicUrl, StringComparison.OrdinalIgnoreCase) is false)
     {
       logger.LogInformation("Received verification request for wrong topic: {Topic}", topic);
       return Results.NotFound();
@@ -34,7 +34,7 @@ internal static class VerifySubscriptionHandler
         leaseSeconds
       );
 
-      if (string.IsNullOrWhiteSpace(leaseSeconds) || !long.TryParse(leaseSeconds, out var parsedSeconds))
+      if (string.IsNullOrWhiteSpace(leaseSeconds) || long.TryParse(leaseSeconds, out var parsedSeconds) is false)
       {
         logger.LogWarning("Invalid or missing lease_seconds parameter: {LeaseSeconds}", leaseSeconds);
         return Results.BadRequest("Invalid lease_seconds parameter");
