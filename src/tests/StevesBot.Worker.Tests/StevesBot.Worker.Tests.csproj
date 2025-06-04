@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.msbuild">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="moq" />
+    <PackageReference Include="RichardSzalay.MockHttp" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <CollectCoverage>true</CollectCoverage>
+    <CoverletOutput>./TestResults/Coverage/</CoverletOutput>
+    <CoverletOutputFormat>cobertura</CoverletOutputFormat>
+    <Include>[StevesBot.Worker]*</Include>
+    <ExcludeByFile>**/Program.cs,**/Worker.cs</ExcludeByFile>
+  </PropertyGroup>
+
+  <Target Name="GenerateHtmlCoverageReport" AfterTargets="GenerateCoverageResultAfterTest">
+    <Exec
+      Command="reportgenerator -reports:./TestResults/Coverage/*.xml -targetdir:./TestResults/Coverage/Report/ -reporttypes:Html_Dark" />
+  </Target>
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\StevesBot.Worker\StevesBot.Worker.csproj" />
+  </ItemGroup>
+
+</Project>

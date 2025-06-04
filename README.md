@@ -1,17 +1,32 @@
 # Steve's Bot 🤖
 
-This is a Discord bot built with .NET 9, designed to be a full-featured and extensible solution for having my own assistant in my [Discord server](https://discord.stevanfreeborn.com).
+This is a comprehensive Discord bot platform built with .NET 9, designed to be a full-featured and extensible solution for having my own assistant in my [Discord server](https://discord.stevanfreeborn.com).
 
 ## ✨ Features
+
+### Core Bot Platform
 
 - **Custom Discord Gateway Client**: Full-featured implementation with:
   - WebSocket connection management
   - Automatic heartbeat handling
   - Session resumption and reconnection logic
   - Event-driven architecture
+- **Shared Library**: Common Discord REST client and telemetry components
 - **Observability**: Built-in telemetry with OpenTelemetry support
 - **Resilient Architecture**: Graceful error handling and automatic recovery
-- **Containerized Deployment**: Ready for Docker deployment
+
+### YouTube Integration
+
+- **YouTube Webhook Service**: Web API for receiving YouTube notifications
+- **Live Stream Detection**: Automatic detection and Discord notifications for live streams
+- **PubSubHubbub Integration**: YouTube webhook subscription management
+- **Stream Deduplication**: Prevents duplicate notifications using in-memory store
+
+### Deployment & Operations
+
+- **Multi-Service Architecture**: Separate worker and webhook services
+- **Containerized Deployment**: Docker containers with Docker Compose orchestration
+- **Production Ready**: Environment-specific configuration and logging
 
 ## 🚀 Quick Start
 
@@ -19,13 +34,16 @@ This is a Discord bot built with .NET 9, designed to be a full-featured and exte
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download)
 - Discord Bot Token (from [Discord Developer Portal](https://discord.com/developers/applications))
+- For YouTube integration: YouTube Data API v3 key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 
 ### Configuration
+
+#### Worker Service (Discord Bot)
 
 1. Copy the example configuration:
 
    ```powershell
-   Copy-Item src/StevesBot.Worker/appsettings.Example.json src/StevesBot.Worker/appsettings.Development.json
+   Copy-Item src/src/StevesBot.Worker/appsettings.Example.json src/src/StevesBot.Worker/appsettings.Development.json
    ```
 
 2. Update `appsettings.Development.json` with your Discord bot credentials:
@@ -40,26 +58,29 @@ This is a Discord bot built with .NET 9, designed to be a full-featured and exte
    }
    ```
 
-### Running the Bot
+#### Webhook Service (YouTube Integration)
+
+1. Copy the example configuration:
+
+   ```powershell
+   Copy-Item src/src/StevesBot.Webhook/appsettings.Example.json src/src/StevesBot.Webhook/appsettings.Development.json
+   ```
+
+2. Update with your API keys and callback URLs for YouTube integration.
+
+### Running the Services
 
 #### Using VS Code Tasks
 
 ```powershell
-# Build the project
+# Build the entire solution
 dotnet build src/StevesBot.sln
 
-# Run the bot
-dotnet run --project src/StevesBot.Worker
-```
+# Run the Discord bot worker
+dotnet run --project src/src/StevesBot.Worker
 
-#### Using Docker
-
-```powershell
-# Build the Docker image
-docker build -t steves-bot src/
-
-# Run the container
-docker run -d --name steves-bot steves-bot
+# Run the YouTube webhook service (in separate terminal)
+dotnet run --project src/src/StevesBot.Webhook
 ```
 
 ## 🏗️ Architecture
@@ -68,34 +89,75 @@ docker run -d --name steves-bot steves-bot
 
 ```txt
 src/
-├── StevesBot.Worker/             # Main bot application
-│   ├── Discord/                  # Discord client implementation
-│   │   ├── Gateway/              # WebSocket gateway client
-│   │   ├── Rest/                 # REST API client
-│   │   └── Shared/               # Common Discord models
-│   ├── Handlers/                 # Event handlers
-│   ├── Telemetry/                # Observability setup
-│   ├── Threading/                # Async utilities
-│   └── WebSockets/               # WebSocket abstractions
-└── StevesBot.Worker.Tests/       # Comprehensive test suite
+├── src/
+│   ├── StevesBot.Library/            # Shared library components
+│   │   ├── Discord/                  # Common Discord REST client
+│   │   └── Telemetry/                # Shared telemetry setup
+│   ├── StevesBot.Worker/             # Discord bot worker service
+│   │   ├── Discord/                  # Discord Gateway client implementation
+│   │   │   ├── Gateway/              # WebSocket gateway client
+│   │   │   ├── Rest/                 # REST API client
+│   │   │   └── Shared/               # Common Discord models
+│   │   ├── Handlers/                 # Discord event handlers
+│   │   ├── Telemetry/                # Worker-specific telemetry
+│   │   ├── Threading/                # Async utilities
+│   │   └── WebSockets/               # WebSocket abstractions
+│   └── StevesBot.Webhook/            # YouTube webhook service
+│       ├── YouTube/                  # YouTube integration components
+│       │   ├── Data/                 # YouTube API models
+│       │   ├── Handlers/             # Webhook request handlers
+│       │   └── Tasks/                # Background tasks
+│       └── Telemetry/                # Webhook-specific telemetry
+├── tests/                            # Comprehensive test suites
+│   ├── StevesBot.Library.Tests/      # Shared library tests
+│   ├── StevesBot.Worker.Tests/       # Worker service tests
+│   └── StevesBot.Webhook.Tests/      # Webhook service tests
+├── compose.yml                       # Docker Compose configuration
+├── StevesBot.Worker.Dockerfile       # Worker service container
+└── StevesBot.Webhook.Dockerfile      # Webhook service container
 ```
 
 ### Key Components
+
+#### Discord Bot Worker
 
 - **DiscordGatewayClient**: Custom WebSocket client for Discord Gateway API
 - **Worker**: Background service that manages the bot lifecycle
 - **WebSocket Management**: Custom WebSocket factory and connection handling
 - **AsyncLock**: Thread-safe async locking mechanism
 
+#### YouTube Webhook Service
+
+- **NotificationHandler**: Processes YouTube webhook notifications
+- **SubscriptionWorker**: Manages YouTube PubSubHubbub subscriptions
+- **YouTubeDataApiClient**: Integrates with YouTube Data API v3
+- **LastPostedStreamStore**: Prevents duplicate stream notifications
+
+#### Shared Library
+
+- **DiscordRestClient**: Reusable Discord REST API client
+- **Telemetry Infrastructure**: OpenTelemetry setup and instrumentation
+
 ## 🔧 Configuration
 
-### Discord Client Options
+### Discord Worker Options
 
 | Setting                          | Description                             | Required |
 |----------------------------------|-----------------------------------------|----------|
 | `DiscordClientOptions__ApiUrl`   | Discord API base URL                    | Yes      |
 | `DiscordClientOptions__AppToken` | Bot token from Discord Developer Portal | Yes      |
 | `DiscordClientOptions__Intents`  | Discord Gateway intents                 | Yes      |
+
+### YouTube Webhook Options
+
+| Setting                                | Description                           | Required |
+|----------------------------------------|---------------------------------------|----------|
+| `YouTubeClientOptions__BaseUrl`       | YouTube Data API base URL            | Yes      |
+| `YouTubeClientOptions__ApiKey`        | YouTube Data API v3 key              | Yes      |
+| `SubscriptionOptions__CallbackUrl`    | Webhook callback URL                  | Yes      |
+| `SubscriptionOptions__TopicUrl`       | YouTube channel topic URL            | Yes      |
+| `PubSubClientOptions__BaseUrl`        | PubSubHubbub hub URL                  | Yes      |
+| `DiscordNotificationOptions__ChannelId` | Discord channel for notifications    | Yes      |
 
 ### Telemetry Options
 
@@ -112,9 +174,6 @@ The project includes a comprehensive test suite with both unit and integration t
 ```powershell
 # Run all tests
 dotnet test src/StevesBot.sln
-
-# Run with coverage
-dotnet test src/StevesBot.sln --collect:"XPlat Code Coverage"
 ```
 
 ### Test Coverage
