@@ -20,7 +20,7 @@ services:
       - DiscordClientOptions__Intents=${DISCORD_INTENTS}
       - DiscordNotificationOptions__ChannelId=${DISCORD_NOTIFICATION_CHANNEL_ID}
       - DiscordNotificationOptions__MessageFormat="${DISCORD_NOTIFICATION_MESSAGE_FORMAT}"
-      - SeqOptions__ServerUrl=${SEQ_SERVER_URL}
+      - SeqOptions__ServerUrl=http://seq:5341
       - SeqOptions__ApiKeyHeader=${SEQ_API_KEY_HEADER}
       - SeqOptions__ApiKey=${SEQ_WEBHOOK_API_KEY}
       - DOTNET_ENVIRONMENT=Production
@@ -34,7 +34,11 @@ services:
       - DiscordClientOptions__ApiUrl=${DISCORD_API_URL}
       - DiscordClientOptions__AppToken=${DISCORD_APP_TOKEN}
       - DiscordClientOptions__Intents=${DISCORD_INTENTS}
-      - SeqOptions__ServerUrl=${SEQ_SERVER_URL}
+      - SeqOptions__ServerUrl=http://seq:5341
       - SeqOptions__ApiKeyHeader=${SEQ_API_KEY_HEADER}
       - SeqOptions__ApiKey=${SEQ_WORKER_API_KEY}
       - DOTNET_ENVIRONMENT=Production
+networks:
+  seq_default:
+    external: true
+    name: seq_default
