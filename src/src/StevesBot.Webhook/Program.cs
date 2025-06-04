@@ -1,7 +1,5 @@
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddTelemetry(static () => new StevesBotWebhookInstrumentation());
-
 builder.Services
   .AddOptionsWithValidateOnStart<SubscriptionOptions>()
   .BindConfiguration(nameof(SubscriptionOptions))
@@ -58,6 +56,8 @@ builder.Services.AddSingleton(
 
 builder.Services.AddDiscordRestClient();
 
+builder.AddTelemetry(static () => new StevesBotWebhookInstrumentation());
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -70,4 +70,4 @@ const string ytCallback = "yt-callback";
 app.MapGet(ytCallback, VerifySubscriptionHandler.Handle);
 app.MapPost(ytCallback, NotificationHandler.HandleAsync);
 
-app.Run();
+await app.RunAsync();

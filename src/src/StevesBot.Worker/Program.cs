@@ -11,7 +11,6 @@ builder.Services.AddSingleton(static sp =>
   return discordOptions;
 });
 
-builder.AddTelemetry(static () => new StevesBotWorkerInstrumentation());
 
 builder.Services.AddSingleton<IWebSocketFactory, WebSocketFactory>();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -23,6 +22,8 @@ builder.Services.AddDiscordGatewayClient(static (client) =>
 );
 
 builder.Services.AddHostedService<Worker>();
+
+builder.AddTelemetry(static () => new StevesBotWorkerInstrumentation());
 
 var host = builder.Build();
 
