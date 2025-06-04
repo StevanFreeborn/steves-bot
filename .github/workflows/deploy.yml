@@ -56,8 +56,8 @@ jobs:
           script: |
             cd steves-bot
 
-            echo 'WORKER_VERSION=worker-${{ needs.build.outputs.version }}' > .env
-            echo 'WEBHOOK_VERSION=webhook-${{ needs.build.outputs.version }}' > .env
+            echo 'WORKER_VERSION=worker-${{ needs.build.outputs.version }}' >> .env
+            echo 'WEBHOOK_VERSION=webhook-${{ needs.build.outputs.version }}' >> .env
 
             echo 'DISCORD_API_URL=${{ vars.DISCORD_API_URL }}' >> .env
             echo 'DISCORD_APP_TOKEN=${{ secrets.DISCORD_APP_TOKEN }}' >> .env
@@ -82,4 +82,6 @@ jobs:
             docker compose -f compose.yml down
             docker compose -f compose.yml pull
             docker compose -f compose.yml up -d --wait
-
+            
+            rm .env
+            rm compose.yml
