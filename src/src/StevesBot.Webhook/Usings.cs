@@ -13,6 +13,7 @@ global using StevesBot.Library.Discord.Common;
 global using StevesBot.Library.Discord.Rest;
 global using StevesBot.Library.Discord.Rest.Requests;
 global using StevesBot.Library.Telemetry;
+global using StevesBot.Webhook.Telemetry;
 global using StevesBot.Webhook.YouTube;
 global using StevesBot.Webhook.YouTube.Data;
 global using StevesBot.Webhook.YouTube.Handlers;

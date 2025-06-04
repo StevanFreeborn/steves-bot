@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace StevesBot.Worker.Tests.Unit;
 
 public sealed class StevesBotWorkerInstrumentationTests : IDisposable

@@ -22,7 +22,7 @@ services:
       - DiscordNotificationOptions__MessageFormat="${DISCORD_NOTIFICATION_MESSAGE_FORMAT}"
       - SeqOptions__ServerUrl=${SEQ_SERVER_URL}
       - SeqOptions__ApiKeyHeader=${SEQ_API_KEY_HEADER}
-      - SeqOptions__ApiKey=${SEQ_API_KEY}
+      - SeqOptions__ApiKey=${SEQ_WEBHOOK_API_KEY}
       - DOTNET_ENVIRONMENT=Production
   worker:
     container_name: steves-bot-worker
@@ -36,5 +36,5 @@ services:
       - DiscordClientOptions__Intents=${DISCORD_INTENTS}
       - SeqOptions__ServerUrl=${SEQ_SERVER_URL}
       - SeqOptions__ApiKeyHeader=${SEQ_API_KEY_HEADER}
-      - SeqOptions__ApiKey=${SEQ_API_KEY}
+      - SeqOptions__ApiKey=${SEQ_WORKER_API_KEY}
       - DOTNET_ENVIRONMENT=Production

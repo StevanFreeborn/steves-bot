@@ -63,7 +63,7 @@ public class HostExtensionsTests
       .NotBeNull();
   }
 
-  private class TestInstrumentation : IInstrumentation
+  private sealed class TestInstrumentation : IInstrumentation
   {
     public string SourceName { get; } = "TestSource";
     public string SourceVersion { get; } = "1.0.0";

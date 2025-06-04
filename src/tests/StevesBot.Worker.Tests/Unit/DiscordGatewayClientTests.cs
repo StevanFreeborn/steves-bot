@@ -1,5 +1,3 @@
-using System.ComponentModel;
-
 namespace StevesBot.Worker.Tests.Unit;
 
 public sealed class DiscordGatewayClientTests : IDisposable
