@@ -1,5 +1,5 @@
-using StevesBot.Library.Discord.Rest.Requests;
 using StevesBot.Library.Discord.Common;
+using StevesBot.Library.Discord.Rest.Requests;
 
 namespace StevesBot.Library.Discord.Rest;
 

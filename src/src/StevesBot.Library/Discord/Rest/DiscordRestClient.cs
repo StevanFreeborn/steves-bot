@@ -2,9 +2,9 @@ using System.Net.Http.Json;
 
 using Microsoft.Extensions.Logging;
 
+using StevesBot.Library.Discord.Common;
 using StevesBot.Library.Discord.Rest.Requests;
 using StevesBot.Library.Discord.Rest.Responses;
-using StevesBot.Library.Discord.Common;
 
 namespace StevesBot.Library.Discord.Rest;
 
