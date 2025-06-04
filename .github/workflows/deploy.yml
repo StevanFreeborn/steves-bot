@@ -45,6 +45,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           source: src/compose.yml
+          strip_components: 1
           target: steves-bot
       - name: Run image on server
         uses: appleboy/ssh-action@v1
@@ -60,7 +61,7 @@ jobs:
 
             echo 'DiscordClientOptions__ApiUrl=${{ vars.DISCORD_API_URL }}' >> .env
             echo 'DiscordClientOptions__AppToken=${{ secrets.DISCORD_APP_TOKEN }}' >> .env
-            echo 'DiscordClientOptions__Intents=${{ vars.DISCORD_INTENTS }}' >> env
+            echo 'DiscordClientOptions__Intents=${{ vars.DISCORD_INTENTS }}' >> .env
 
             echo 'SEQ_SERVER_URL=${{ secrets.SEQ_SERVER_URL }}' >> .env
             echo 'SEQ_API_KEY_HEADER=${{ vars.SEQ_API_KEY_HEADER }}' >> .env
