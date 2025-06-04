@@ -59,9 +59,9 @@ jobs:
             echo 'WORKER_VERSION=worker-${{ needs.build.outputs.version }}' > .env
             echo 'WEBHOOK_VERSION=webhook-${{ needs.build.outputs.version }}' > .env
 
-            echo 'DiscordClientOptions__ApiUrl=${{ vars.DISCORD_API_URL }}' >> .env
-            echo 'DiscordClientOptions__AppToken=${{ secrets.DISCORD_APP_TOKEN }}' >> .env
-            echo 'DiscordClientOptions__Intents=${{ vars.DISCORD_INTENTS }}' >> .env
+            echo 'DISCORD_API_URL=${{ vars.DISCORD_API_URL }}' >> .env
+            echo 'DISCORD_APP_TOKEN=${{ secrets.DISCORD_APP_TOKEN }}' >> .env
+            echo 'DISCORD_INTENTS=${{ vars.DISCORD_INTENTS }}' >> .env
 
             echo 'SEQ_SERVER_URL=${{ secrets.SEQ_SERVER_URL }}' >> .env
             echo 'SEQ_API_KEY_HEADER=${{ vars.SEQ_API_KEY_HEADER }}' >> .env
@@ -83,5 +83,3 @@ jobs:
             docker compose -f compose.yml pull
             docker compose -f compose.yml up -d --wait
 
-            rm compose.yml
-            rm .env
