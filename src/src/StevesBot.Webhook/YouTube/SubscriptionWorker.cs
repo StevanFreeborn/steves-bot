@@ -72,6 +72,8 @@ internal sealed class SubscriptionWorker(
 
   private async Task ProcessSubscriptionQueueAsync(CancellationToken cancellationToken)
   {
+    var tasksToRequeue = new List<SubscribeTask>();
+
     while (_subscriptionQueue.TryDequeue(out var task))
     {
       // We will attempt to process the task
@@ -90,7 +92,7 @@ internal sealed class SubscriptionWorker(
           now
         );
 
-        _subscriptionQueue.Enqueue(task);
+        tasksToRequeue.Add(task);
 
         continue;
       }
@@ -111,6 +113,8 @@ internal sealed class SubscriptionWorker(
 
       _logger.LogWarning("Failed to subscribe to topic: {TopicUrl}", task.TopicUrl);
     }
+
+    tasksToRequeue.ForEach(_subscriptionQueue.Enqueue);
   }
 
   public void Dispose()
