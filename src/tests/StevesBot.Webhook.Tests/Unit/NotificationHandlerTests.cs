@@ -1,13 +1,3 @@
-using System.Text;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.Extensions.Options;
-
-using StevesBot.Library.Discord.Rest;
-using StevesBot.Library.Discord.Rest.Requests;
-using StevesBot.Webhook.YouTube.Handlers;
-
 namespace StevesBot.Webhook.Tests.Unit;
 
 public class NotificationHandlerTests

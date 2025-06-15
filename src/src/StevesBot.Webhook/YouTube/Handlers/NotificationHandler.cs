@@ -56,7 +56,7 @@ internal static class NotificationHandler
 
     var msg = string.Format(
       CultureInfo.InvariantCulture,
-      discordNotificationOptions.CurrentValue.MessageFormat,
+      discordNotificationOptions.CurrentValue.MessageFormat.Trim('"'),
       videoId
     );
 

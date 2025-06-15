@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace StevesBot.Webhook.Tests.Unit;
 
 public class VerifySubscriptionHandlerTests
