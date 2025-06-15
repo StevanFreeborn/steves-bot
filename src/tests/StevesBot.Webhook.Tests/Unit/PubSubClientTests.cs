@@ -1,4 +1,3 @@
-
 namespace StevesBot.Webhook.Tests.Unit;
 
 public sealed class PubSubClientTests : IDisposable

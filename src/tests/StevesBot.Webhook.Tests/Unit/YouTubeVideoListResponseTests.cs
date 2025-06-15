@@ -1,5 +1,3 @@
-using StevesBot.Webhook.YouTube.Data;
-
 namespace StevesBot.Webhook.Tests.Unit;
 
 public class YouTubeVideoListResponseTests
