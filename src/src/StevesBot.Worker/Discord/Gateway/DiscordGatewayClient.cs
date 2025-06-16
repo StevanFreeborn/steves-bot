@@ -224,7 +224,17 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       catch (Exception ex)
 #pragma warning restore CA1031 // Do not catch general exception types
       {
-        _logger.LogError(ex, "Unexpected error while receiving messages");
+        _logger.LogWarning(ex, "Unexpected error while receiving messages");
+
+        if (ex is WebSocketException wse)
+        {
+          _logger.LogWarning(
+            "WebSocket error: {Message} - {ErrorCode} - {WebSocketErrorCode}",
+            wse.Message,
+            wse.ErrorCode,
+            wse.WebSocketErrorCode
+          );
+        }
 
         _logger.LogWarning("Closing connection and invalidating session.");
 
