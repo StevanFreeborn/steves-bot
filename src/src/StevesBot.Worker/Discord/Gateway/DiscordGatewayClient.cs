@@ -145,7 +145,6 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
         while (_linkedReceiveMessageCts?.IsCancellationRequested is false)
         {
-          var messageString = new StringBuilder();
           using var memoryStream = new MemoryStream();
           WebSocketReceiveResult result;
 
@@ -176,7 +175,6 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
             if (result.MessageType is WebSocketMessageType.Text)
             {
               var message = Encoding.UTF8.GetString(messageBuffer, 0, result.Count);
-              messageString.Append(message);
 
               await memoryStream.WriteAsync(messageBuffer.AsMemory(0, result.Count), _linkedReceiveMessageCts.Token);
             }
@@ -188,7 +186,6 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
           memoryStream.Seek(0, SeekOrigin.Begin);
 
           var msgFromMemoryStream = Encoding.UTF8.GetString(memoryStream.ToArray());
-          var msgFromStringBuilder = messageString.ToString();
 
           DiscordEvent? e = null;
 
@@ -203,9 +200,7 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
           catch (JsonException ex)
           {
             _logger.LogError(ex, "Failed to deserialize message: {Message}", msgFromMemoryStream);
-            _logger.LogDebug("Message from StringBuilder: {Message}", msgFromStringBuilder);
           }
-
 
           if (e is null)
           {
