@@ -412,18 +412,86 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
     _webSocket?.Dispose();
 
-    if (_canResume)
+    // Attempt reconnection with retry logic and exponential backoff
+    await ReconnectWithRetryAsync(cancellationToken);
+  }
+
+  private async Task ReconnectWithRetryAsync(CancellationToken cancellationToken)
+  {
+    var attempt = 0;
+    var delay = _options.BaseRetryDelayMs;
+
+    while (attempt < _options.MaxRetryAttempts)
     {
-      _logger.LogInformation("Resuming connection to Discord Gateway.");
+      try
+      {
+        attempt++;
+        
+        if (attempt > 1)
+        {
+          _logger.LogInformation("Reconnection attempt {Attempt}/{MaxAttempts} after {Delay}ms delay", 
+            attempt, _options.MaxRetryAttempts, delay);
+          
+          await Task.Delay(delay, cancellationToken);
+          
+          // Exponential backoff with jitter
+          delay = Math.Min(delay * 2, _options.MaxRetryDelayMs);
+          
+          // Add jitter to prevent thundering herd
+#pragma warning disable CA5394 // Do not use insecure randomness
+          var jitter = Random.Shared.NextDouble() * 0.3; // Up to 30% jitter
+#pragma warning restore CA5394 // Do not use insecure randomness
+          delay = (int)(delay * (1.0 + jitter));
+        }
+        else
+        {
+          _logger.LogInformation("Attempting initial reconnection");
+        }
 
-      await SetWebSocketAsync(_webSocketFactory.Create(), cancellationToken);
-      await ConnectWithResumeUrlAsync(cancellationToken);
-      await StartReceiveMessagesAsync(cancellationToken);
-      return;
+        if (_canResume)
+        {
+          _logger.LogInformation("Resuming connection to Discord Gateway (attempt {Attempt})", attempt);
+
+          await SetWebSocketAsync(_webSocketFactory.Create(), cancellationToken);
+          await ConnectWithResumeUrlAsync(cancellationToken);
+          await StartReceiveMessagesAsync(cancellationToken);
+        }
+        else
+        {
+          _logger.LogInformation("Reconnecting to Discord Gateway (attempt {Attempt})", attempt);
+          await ConnectAsync(cancellationToken);
+        }
+
+        _logger.LogInformation("Successfully reconnected to Discord Gateway on attempt {Attempt}", attempt);
+        return; // Success, exit retry loop
+      }
+      catch (OperationCanceledException)
+      {
+        _logger.LogInformation("Reconnection canceled");
+        throw; // Don't retry on cancellation
+      }
+      catch (Exception ex)
+      {
+        _logger.LogWarning(ex, "Reconnection attempt {Attempt}/{MaxAttempts} failed: {Error}", 
+          attempt, _options.MaxRetryAttempts, ex.Message);
+
+        if (attempt >= _options.MaxRetryAttempts)
+        {
+          _logger.LogError("All {MaxAttempts} reconnection attempts failed. Giving up.", _options.MaxRetryAttempts);
+          throw new DiscordGatewayClientException($"Failed to reconnect after {_options.MaxRetryAttempts} attempts", ex);
+        }
+
+        // Clean up any partial connection state before next attempt
+        try
+        {
+          _webSocket?.Dispose();
+        }
+        catch (Exception disposeEx)
+        {
+          _logger.LogDebug(disposeEx, "Error disposing websocket during retry cleanup");
+        }
+      }
     }
-
-    _logger.LogInformation("Reconnecting to Discord Gateway.");
-    await ConnectAsync(cancellationToken);
   }
 
   private async Task SendResumeAsync(CancellationToken cancellationToken)
