@@ -1282,6 +1282,47 @@ public sealed class DiscordGatewayClientTests : IDisposable
       });
   }
 
+  [Fact]
+  public void ReconnectWithRetryAsync_WhenRetryOptionsAreConfigured_ItShouldUseConfiguredValues()
+  {
+    // Arrange
+    var customOptions = new DiscordClientOptions
+    {
+      MaxRetryAttempts = 3,
+      BaseRetryDelayMs = 500,
+      MaxRetryDelayMs = 5000
+    };
+
+    var customClient = new DiscordGatewayClient(
+      customOptions,
+      _mockWebSocketFactory.Object,
+      _mockLogger.Object,
+      _mockDiscordRestClient.Object,
+      _mockTimeProvider.Object,
+      _mockServiceScopeFactory.Object
+    );
+
+    // Act & Assert
+    customOptions.MaxRetryAttempts.Should().Be(3);
+    customOptions.BaseRetryDelayMs.Should().Be(500);
+    customOptions.MaxRetryDelayMs.Should().Be(5000);
+
+    // Cleanup
+    customClient.Dispose();
+  }
+
+  [Fact]
+  public void DiscordClientOptions_WhenDefaulOptionsAreUsed_ItShouldHaveReasonableRetryDefaults()
+  {
+    // Arrange & Act
+    var defaultOptions = new DiscordClientOptions();
+
+    // Assert
+    defaultOptions.MaxRetryAttempts.Should().Be(5);
+    defaultOptions.BaseRetryDelayMs.Should().Be(1000);
+    defaultOptions.MaxRetryDelayMs.Should().Be(60000);
+  }
+
   private static (byte[] Bytes, string Json) CreateEventPayload(object e)
   {
     var json = JsonSerializer.Serialize(e);

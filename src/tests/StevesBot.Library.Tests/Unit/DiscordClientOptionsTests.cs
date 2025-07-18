@@ -12,6 +12,11 @@ public class DiscordClientOptionsTests
     options.ApiUrl.Should().Be(string.Empty);
     options.AppToken.Should().Be(string.Empty);
     options.Intents.Should().Be(0);
+    
+    // Verify default retry configuration
+    options.MaxRetryAttempts.Should().Be(5);
+    options.BaseRetryDelayMs.Should().Be(1000);
+    options.MaxRetryDelayMs.Should().Be(60000);
   }
 
   [Fact]
@@ -33,5 +38,20 @@ public class DiscordClientOptionsTests
     options.ApiUrl.Should().Be(apiUrl);
     options.AppToken.Should().Be(appToken);
     options.Intents.Should().Be(intents);
+  }
+
+  [Fact]
+  public void Constructor_WhenCalledWithCustomRetryOptions_ItShouldUseProvidedValues()
+  {
+    var options = new DiscordClientOptions
+    {
+      MaxRetryAttempts = 3,
+      BaseRetryDelayMs = 500,
+      MaxRetryDelayMs = 30000
+    };
+
+    options.MaxRetryAttempts.Should().Be(3);
+    options.BaseRetryDelayMs.Should().Be(500);
+    options.MaxRetryDelayMs.Should().Be(30000);
   }
 }
