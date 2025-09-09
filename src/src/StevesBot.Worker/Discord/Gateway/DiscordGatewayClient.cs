@@ -1,3 +1,4 @@
+
 using Activity = StevesBot.Worker.Discord.Gateway.Events.Data.Activity;
 
 namespace StevesBot.Worker.Discord.Gateway;
@@ -674,7 +675,23 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       throw new DiscordGatewayClientException("WebSocket is already open. Cannot connect.");
     }
 
-    await _webSocket.ConnectAsync(uri, cancellationToken);
+    var connected = false;
+    var attempts = 0;
+    var delay = TimeSpan.FromSeconds(0);
+
+    while (connected is false)
+    {
+      try
+      {
+        await Task.Delay(delay, cancellationToken);
+        await _webSocket.ConnectAsync(uri, cancellationToken);
+        connected = true;
+      }
+      catch (Exception e) when (e is WebSocketException)
+      {
+        // TODO: Implement exponential backoff retry strategy
+      }
+    }
   }
 
   private static Uri BuildUri(string url)

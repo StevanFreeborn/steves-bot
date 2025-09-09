@@ -1,3 +1,4 @@
+global using System.Net;
 global using System.Net.WebSockets;
 global using System.Reflection;
 global using System.Text;
