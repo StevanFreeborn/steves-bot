@@ -677,19 +677,30 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
 
     var connected = false;
     var attempts = 0;
-    var delay = TimeSpan.FromSeconds(0);
+    var delay = TimeSpan.FromSeconds(1);
 
     while (connected is false)
     {
       try
       {
-        await Task.Delay(delay, cancellationToken);
         await _webSocket.ConnectAsync(uri, cancellationToken);
         connected = true;
       }
       catch (Exception e) when (e is WebSocketException)
       {
-        // TODO: Implement exponential backoff retry strategy
+        var currentDelay = (int)(delay.TotalMilliseconds * Math.Pow(2, attempts));
+
+        _logger.LogWarning(
+          e,
+          "Failed to connect to {Uri} on {Attempt} attempt. Waiting for {Delay}ms before trying again",
+          uri,
+          attempts,
+          currentDelay
+        );
+
+        await Task.Delay(currentDelay, cancellationToken);
+
+        attempts++;
       }
     }
   }
