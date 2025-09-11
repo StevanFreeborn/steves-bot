@@ -1,3 +1,4 @@
+
 using Activity = StevesBot.Worker.Discord.Gateway.Events.Data.Activity;
 
 namespace StevesBot.Worker.Discord.Gateway;
@@ -674,7 +675,34 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       throw new DiscordGatewayClientException("WebSocket is already open. Cannot connect.");
     }
 
-    await _webSocket.ConnectAsync(uri, cancellationToken);
+    var connected = false;
+    var attempts = 0;
+    var delay = TimeSpan.FromSeconds(1);
+
+    while (connected is false)
+    {
+      try
+      {
+        await _webSocket.ConnectAsync(uri, cancellationToken);
+        connected = true;
+      }
+      catch (Exception e) when (e is WebSocketException)
+      {
+        var currentDelay = (int)(delay.TotalMilliseconds * Math.Pow(2, attempts));
+
+        _logger.LogWarning(
+          e,
+          "Failed to connect to {Uri} on {Attempt} attempt. Waiting for {Delay}ms before trying again",
+          uri,
+          attempts,
+          currentDelay
+        );
+
+        await Task.Delay(currentDelay, cancellationToken);
+
+        attempts++;
+      }
+    }
   }
 
   private static Uri BuildUri(string url)
