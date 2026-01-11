@@ -12,6 +12,8 @@ internal static class NotificationHandler
     CancellationToken cancellationToken = default
   )
   {
+    lastPostedStreamStore.RemoveValuesOlderThan24Hours();
+
     using StreamReader stream = new(context.Request.Body);
     var body = await stream.ReadToEndAsync(cancellationToken);
 
