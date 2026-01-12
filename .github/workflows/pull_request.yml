@@ -12,11 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup .NET 9
-        uses: actions/setup-dotnet@v4
+        uses: actions/checkout@v6
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
       - name: Format code
         run: dotnet format src --verify-no-changes --verbosity diagnostic
   test:
@@ -24,11 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup .NET 9
-        uses: actions/setup-dotnet@v4
+        uses: actions/checkout@v6
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
       - name: Install report generator
         run: dotnet tool install -g dotnet-reportgenerator-globaltool
       - name: Run tests
@@ -36,7 +36,7 @@ jobs:
       - name: Merge coverage reports
         run: reportgenerator "-reports:src/tests/*/TestResults/*/coverage.cobertura.xml" "-reporttypes:Html;Cobertura" "-targetdir:src/tests/TestResults/Coverage"
       - name: Upload code coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-reports
           path: src/tests/TestResults/Coverage

@@ -1,6 +1,6 @@
 # Steve's Bot 🤖
 
-This is a comprehensive Discord bot platform built with .NET 9, designed to be a full-featured and extensible solution for having my own assistant in my [Discord server](https://discord.stevanfreeborn.com).
+This is a comprehensive Discord bot platform built with .NET 10, designed to be a full-featured and extensible solution for having my own assistant in my [Discord server](https://discord.stevanfreeborn.com).
 
 ## ✨ Features
 
@@ -32,7 +32,7 @@ This is a comprehensive Discord bot platform built with .NET 9, designed to be a
 
 ### Prerequisites
 
-- [.NET 9 SDK](https://dotnet.microsoft.com/download)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - Discord Bot Token (from [Discord Developer Portal](https://discord.com/developers/applications))
 - For YouTube integration: YouTube Data API v3 key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 
@@ -150,14 +150,14 @@ src/
 
 ### YouTube Webhook Options
 
-| Setting                                | Description                           | Required |
-|----------------------------------------|---------------------------------------|----------|
-| `YouTubeClientOptions__BaseUrl`       | YouTube Data API base URL            | Yes      |
-| `YouTubeClientOptions__ApiKey`        | YouTube Data API v3 key              | Yes      |
-| `SubscriptionOptions__CallbackUrl`    | Webhook callback URL                  | Yes      |
-| `SubscriptionOptions__TopicUrl`       | YouTube channel topic URL            | Yes      |
-| `PubSubClientOptions__BaseUrl`        | PubSubHubbub hub URL                  | Yes      |
-| `DiscordNotificationOptions__ChannelId` | Discord channel for notifications    | Yes      |
+| Setting                                 | Description                       | Required |
+|-----------------------------------------|-----------------------------------|----------|
+| `YouTubeClientOptions__BaseUrl`         | YouTube Data API base URL         | Yes      |
+| `YouTubeClientOptions__ApiKey`          | YouTube Data API v3 key           | Yes      |
+| `SubscriptionOptions__CallbackUrl`      | Webhook callback URL              | Yes      |
+| `SubscriptionOptions__TopicUrl`         | YouTube channel topic URL         | Yes      |
+| `PubSubClientOptions__BaseUrl`          | PubSubHubbub hub URL              | Yes      |
+| `DiscordNotificationOptions__ChannelId` | Discord channel for notifications | Yes      |
 
 ### Telemetry Options
 
@@ -226,11 +226,11 @@ The project includes a multi-stage Dockerfile for optimized production builds:
 
 ```dockerfile
 # Build stage with .NET SDK
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS base
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS base
 # ... build steps ...
 
 # Runtime stage with optimized ASP.NET runtime
-FROM mcr.microsoft.com/dotnet/aspnet:9.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # ... runtime setup ...
 ```
 
@@ -266,6 +266,6 @@ This project is licensed under the terms found in the [LICENSE.md](LICENSE.md) f
 
 ---
 
-Built with ❤️ using .NET 9 and a lot of coffee ☕
+Built with ❤️ using .NET 10 and a lot of coffee ☕
 
 *Steve's Bot - Helping Stevan and friends since 2025* 🚀
