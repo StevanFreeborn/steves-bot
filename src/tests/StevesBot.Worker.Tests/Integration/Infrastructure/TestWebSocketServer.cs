@@ -1,10 +1,12 @@
+using Microsoft.AspNetCore.Hosting.Server;
+
 using WebSocket = System.Net.WebSockets.WebSocket;
 
 namespace StevesBot.Worker.Tests.Integration.Infrastructure;
 
 public sealed class TestWebSocketServer : IAsyncLifetime, IDisposable
 {
-  private readonly IWebHost _host;
+  private readonly IHost _host;
   private readonly CancellationTokenSource _echoCts = new();
   private Uri? _webSocketUri;
 
@@ -19,26 +21,30 @@ public sealed class TestWebSocketServer : IAsyncLifetime, IDisposable
 
   public TestWebSocketServer()
   {
-    _host = new WebHostBuilder()
-      .Configure(app =>
+    _host = new HostBuilder()
+      .ConfigureWebHost(b =>
       {
-        app.UseWebSockets();
-
-        app.Run(async context =>
+        b.Configure(app =>
         {
-          if (context.Request.Path == "/ws" && context.WebSockets.IsWebSocketRequest)
+          app.UseWebSockets();
+
+          app.Run(async context =>
           {
-            var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-            await Echo(webSocket, _echoCts.Token);
-          }
-          else
-          {
-            context.Response.StatusCode = 400;
-          }
+            if (context.Request.Path == "/ws" && context.WebSockets.IsWebSocketRequest)
+            {
+              var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+              await Echo(webSocket, _echoCts.Token);
+            }
+            else
+            {
+              context.Response.StatusCode = 400;
+            }
+          });
         });
+
+        b.UseKestrel();
+        b.UseUrls("http://[::1]:0");
       })
-      .UseKestrel()
-      .UseUrls("http://[::1]:0")
       .Build();
   }
 
@@ -58,7 +64,8 @@ public sealed class TestWebSocketServer : IAsyncLifetime, IDisposable
 
   private Uri GetWebSocketUri()
   {
-    var address = _host.ServerFeatures.GetRequiredFeature<IServerAddressesFeature>().Addresses.First();
+    var serverFeatures = _host.Services.GetRequiredService<IServer>().Features;
+    var address = serverFeatures.GetRequiredFeature<IServerAddressesFeature>().Addresses.First();
     var webSocketAddress = address.Replace("http://", "ws://", StringComparison.OrdinalIgnoreCase);
     return new Uri(webSocketAddress + "/ws");
   }

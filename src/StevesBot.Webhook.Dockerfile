@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS base
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS base
 WORKDIR /app
 
 # solution level
@@ -29,7 +29,7 @@ COPY . .
 FROM base AS publish-stage
 RUN dotnet publish -c Release -o dist src/StevesBot.Webhook/StevesBot.Webhook.csproj
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=publish-stage /app/dist ./
 ENTRYPOINT ["dotnet", "StevesBot.Webhook.dll"]
