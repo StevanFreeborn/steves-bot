@@ -18,8 +18,10 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDiscordRestClient();
 
 builder.Services.AddDiscordGatewayClient(static (client) =>
-  client.On(DiscordEventTypes.MessageCreate, WelcomeMessageHandler.HandleAsync)
-);
+{
+  client.On(DiscordEventTypes.MessageCreate, WelcomeMessageHandler.HandleAsync);
+  client.On(DiscordEventTypes.MessageCreate, TaggedMessageHandler.HandleAsync);
+});
 
 builder.Services.AddHostedService<Worker>();
 

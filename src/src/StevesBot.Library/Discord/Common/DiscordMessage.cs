@@ -18,4 +18,12 @@ public sealed record DiscordMessage
 
   [JsonPropertyName("author")]
   public DiscordUser Author { get; init; } = new DiscordUser();
+
+  [JsonPropertyName("mentions")]
+  public IEnumerable<DiscordUser> Mentions { get; init; } = [];
+
+  public bool MentionsUser(string userId)
+  {
+    return Mentions.Any(u => u.Id.Equals(userId, StringComparison.OrdinalIgnoreCase));
+  }
 }

@@ -7,4 +7,5 @@ public interface IDiscordRestClient
 {
   Task<string> GetGatewayUrlAsync(CancellationToken cancellationToken = default);
   Task<DiscordMessage> CreateMessageAsync(string channelId, CreateMessageRequest request, CancellationToken cancellationToken = default);
+  Task<DiscordUser> GetMeAsync(CancellationToken cancellationToken);
 }

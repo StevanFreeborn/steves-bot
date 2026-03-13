@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using StevesBot.Library.Discord.Common;
 using StevesBot.Library.Discord.Rest;
+using StevesBot.Library.Gemini;
 using StevesBot.Library.Telemetry;
 
 namespace StevesBot.Library.Discord;
@@ -28,4 +29,15 @@ public static class ServicesExtensions
     return services;
   }
 
+  public static IServiceCollection AddGeminiClient(this IServiceCollection services)
+  {
+    services
+      .AddHttpClient<IGeminiClient, GeminiClient>(static (sp, c) =>
+      {
+        throw new NotImplementedException();
+      })
+      .AddStandardResilienceHandler();
+
+    return services;
+  }
 }

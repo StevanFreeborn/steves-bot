@@ -18,8 +18,11 @@ public sealed class DiscordRestClient : IDiscordRestClient
     HttpClient httpClient
   )
   {
-    _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+    ArgumentNullException.ThrowIfNull(logger, nameof(logger));
+    ArgumentNullException.ThrowIfNull(httpClient, nameof(httpClient));
+
+    _logger = logger;
+    _httpClient = httpClient;
   }
 
   public async Task<string> GetGatewayUrlAsync(CancellationToken cancellationToken = default)
@@ -64,5 +67,27 @@ public sealed class DiscordRestClient : IDiscordRestClient
     }
 
     return discordMessage;
+  }
+
+  public async Task<DiscordUser> GetMeAsync(CancellationToken cancellationToken)
+  {
+    var meEndpoint = new Uri($"users/@me", UriKind.Relative);
+    var response = await _httpClient.GetAsync(meEndpoint, cancellationToken);
+
+    if (response.IsSuccessStatusCode is false)
+    {
+      _logger.LogError("Failed to retrieve current user: {StatusCode}", response.StatusCode);
+      throw new DiscordRestClientException("Failed to create message.");
+    }
+
+    var discordUser = await response.Content.ReadFromJsonAsync<DiscordUser>(cancellationToken);
+
+    if (discordUser is null)
+    {
+      _logger.LogError("Failed to deserialize user response.");
+      throw new DiscordRestClientException("Failed to deserialize user response.");
+    }
+
+    return discordUser;
   }
 }
