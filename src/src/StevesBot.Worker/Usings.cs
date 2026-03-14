@@ -1,4 +1,3 @@
-global using System.Net;
 global using System.Net.WebSockets;
 global using System.Reflection;
 global using System.Text;
@@ -11,6 +10,7 @@ global using StevesBot.Library.Discord;
 global using StevesBot.Library.Discord.Common;
 global using StevesBot.Library.Discord.Rest;
 global using StevesBot.Library.Discord.Rest.Requests;
+global using StevesBot.Library.Gemini;
 global using StevesBot.Library.Telemetry;
 global using StevesBot.Worker;
 global using StevesBot.Worker.Discord;

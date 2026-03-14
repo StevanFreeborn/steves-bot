@@ -17,6 +17,8 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddDiscordRestClient();
 
+builder.Services.AddGeminiClient();
+
 builder.Services.AddDiscordGatewayClient(static (client) =>
 {
   client.On(DiscordEventTypes.MessageCreate, WelcomeMessageHandler.HandleAsync);

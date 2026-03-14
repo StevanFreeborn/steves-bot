@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 
 using Microsoft.Extensions.Logging;
 
@@ -12,6 +13,11 @@ public sealed class DiscordRestClient : IDiscordRestClient
 {
   private readonly ILogger<DiscordRestClient> _logger;
   private readonly HttpClient _httpClient;
+  private static readonly JsonSerializerOptions JsonOptions = new()
+  {
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    PropertyNameCaseInsensitive = true,
+  };
 
   public DiscordRestClient(
     ILogger<DiscordRestClient> logger,
@@ -29,18 +35,19 @@ public sealed class DiscordRestClient : IDiscordRestClient
   {
     var gatewayEndpoint = new Uri("gateway", UriKind.Relative);
     var response = await _httpClient.GetAsync(gatewayEndpoint, cancellationToken);
+    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
     if (response.IsSuccessStatusCode is false)
     {
-      _logger.LogError("Failed to get gateway URL: {StatusCode}", response.StatusCode);
+      _logger.LogError("Failed to get gateway URL: {StatusCode} - {Content}", response.StatusCode, responseContent);
       throw new DiscordRestClientException("Failed to get gateway URL.");
     }
 
-    var gatewayResponse = await response.Content.ReadFromJsonAsync<GatewayResponse>(cancellationToken);
+    var gatewayResponse = JsonSerializer.Deserialize<GatewayResponse>(responseContent, JsonOptions);
 
     if (gatewayResponse is null)
     {
-      _logger.LogError("Failed to deserialize gateway response.");
+      _logger.LogError("Failed to deserialize gateway response: {Content}", responseContent);
       throw new DiscordRestClientException("Failed to deserialize gateway response.");
     }
 
@@ -51,18 +58,19 @@ public sealed class DiscordRestClient : IDiscordRestClient
   {
     var channelEndpoint = new Uri($"channels/{channelId}/messages", UriKind.Relative);
     var response = await _httpClient.PostAsJsonAsync(channelEndpoint, request, cancellationToken);
+    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
     if (response.IsSuccessStatusCode is false)
     {
-      _logger.LogError("Failed to create message: {StatusCode}", response.StatusCode);
+      _logger.LogError("Failed to create message: {StatusCode} - {Content}", response.StatusCode, responseContent);
       throw new DiscordRestClientException("Failed to create message.");
     }
 
-    var discordMessage = await response.Content.ReadFromJsonAsync<DiscordMessage>(cancellationToken);
+    var discordMessage = JsonSerializer.Deserialize<DiscordMessage>(responseContent, JsonOptions);
 
     if (discordMessage is null)
     {
-      _logger.LogError("Failed to deserialize message create response.");
+      _logger.LogError("Failed to deserialize message create response: {Content}", responseContent);
       throw new DiscordRestClientException("Failed to deserialize message create response.");
     }
 
@@ -73,18 +81,19 @@ public sealed class DiscordRestClient : IDiscordRestClient
   {
     var meEndpoint = new Uri($"users/@me", UriKind.Relative);
     var response = await _httpClient.GetAsync(meEndpoint, cancellationToken);
+    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
     if (response.IsSuccessStatusCode is false)
     {
-      _logger.LogError("Failed to retrieve current user: {StatusCode}", response.StatusCode);
+      _logger.LogError("Failed to retrieve current user: {StatusCode} - {Content}", response.StatusCode, responseContent);
       throw new DiscordRestClientException("Failed to create message.");
     }
 
-    var discordUser = await response.Content.ReadFromJsonAsync<DiscordUser>(cancellationToken);
+    var discordUser = JsonSerializer.Deserialize<DiscordUser>(responseContent, JsonOptions);
 
     if (discordUser is null)
     {
-      _logger.LogError("Failed to deserialize user response.");
+      _logger.LogError("Failed to deserialize user response: {Content}", responseContent);
       throw new DiscordRestClientException("Failed to deserialize user response.");
     }
 

@@ -31,10 +31,10 @@ internal static class TaggedMessageHandler
 
     logger.LogInformation("Bot tagged in message");
 
-    // TODO: Get message content from discord
-    // event
-    var llmResponse = await geminiClient.GenerateContentAsync("Hello", cancellationToken);
+    var llmResponse = await geminiClient.GenerateContentAsync(mcde.Data.Content, cancellationToken);
 
+    // TODO: LLM can be wordy...discord has 2000 character limit
+    // on message size. Need to handle that.
     var request = new CreateMessageRequest(
       Content: llmResponse,
       MessageReference: new(

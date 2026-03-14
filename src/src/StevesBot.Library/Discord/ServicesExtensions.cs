@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 using StevesBot.Library.Discord.Common;
 using StevesBot.Library.Discord.Rest;
-using StevesBot.Library.Gemini;
 using StevesBot.Library.Telemetry;
 
 namespace StevesBot.Library.Discord;
@@ -23,18 +22,6 @@ public static class ServicesExtensions
 
         var userAgentString = $"DiscordBot (https://github.com/StevanFreeborn/steves-bot, {version})";
         c.DefaultRequestHeaders.Add("User-Agent", userAgentString);
-      })
-      .AddStandardResilienceHandler();
-
-    return services;
-  }
-
-  public static IServiceCollection AddGeminiClient(this IServiceCollection services)
-  {
-    services
-      .AddHttpClient<IGeminiClient, GeminiClient>(static (sp, c) =>
-      {
-        throw new NotImplementedException();
       })
       .AddStandardResilienceHandler();
 

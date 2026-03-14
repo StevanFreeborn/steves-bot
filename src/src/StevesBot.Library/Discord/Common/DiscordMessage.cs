@@ -19,6 +19,9 @@ public sealed record DiscordMessage
   [JsonPropertyName("author")]
   public DiscordUser Author { get; init; } = new DiscordUser();
 
+  [JsonPropertyName("content")]
+  public string Content { get; init; } = string.Empty;
+
   [JsonPropertyName("mentions")]
   public IEnumerable<DiscordUser> Mentions { get; init; } = [];
 
