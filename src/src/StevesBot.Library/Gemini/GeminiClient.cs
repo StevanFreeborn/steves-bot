@@ -38,6 +38,7 @@ public sealed class GeminiClient : IGeminiClient
     try
     {
       var requestUri = new Uri($"/v1beta/models/{_options.ModelId}:generateContent", UriKind.Relative);
+      // TODO: We need a system prompt to constrain model outputs better
       var request = Request.From(input);
       var json = JsonSerializer.Serialize(request, JsonOptions);
       using var content = new StringContent(json, Encoding.UTF8, "application/json");
