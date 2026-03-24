@@ -23,6 +23,9 @@ services:
       - SeqOptions__ServerUrl=http://seq:80
       - SeqOptions__ApiKeyHeader=${SEQ_API_KEY_HEADER}
       - SeqOptions__ApiKey=${SEQ_WEBHOOK_API_KEY}
+      - GeminiClientOptions__ApiUrl=${GEMINI_API_URL}
+      - GeminiClientOptions__ModelId=${GEMINI_MODEL_ID}
+      - GeminiClientOptions__ApiKey=${GEMINI_API_KEY}
       - DOTNET_ENVIRONMENT=Production
     networks:
       - seq_network
