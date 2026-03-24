@@ -71,7 +71,9 @@ public sealed class GeminiClient : IGeminiClient
 
       return geminiResponse.GetText();
     }
+#pragma warning disable CA1031 // Do not catch general exception types
     catch (Exception e)
+#pragma warning restore CA1031 // Do not catch general exception types
     {
       _logger.LogError(e, "Failed to generate content");
       return errorMessage;
