@@ -1,3 +1,4 @@
+
 namespace StevesBot.Worker.Discord.Gateway.Events;
 
 internal sealed record MessageCreateDiscordEvent : DispatchDiscordEvent

@@ -79,6 +79,10 @@ jobs:
             echo 'DISCORD_NOTIFICATION_CHANNEL_ID=${{ vars.DISCORD_NOTIFICATION_CHANNEL_ID }}' >> .env
             echo 'DISCORD_NOTIFICATION_MESSAGE_FORMAT=${{ vars.DISCORD_NOTIFICATION_MESSAGE_FORMAT }}' >> .env
 
+            echo 'GEMINI_API_URL=${{ vars.GEMINI_API_URL }}' >> .env
+            echo 'GEMINI_MODEL_ID=${{ secrets.GEMINI_MODEL_ID }}' >> .env
+            echo 'GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}' >> .env
+
             docker compose -f compose.yml down
             docker compose -f compose.yml pull
             docker compose -f compose.yml up -d --wait

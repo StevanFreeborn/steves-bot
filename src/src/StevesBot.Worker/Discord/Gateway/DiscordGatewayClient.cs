@@ -288,7 +288,6 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
           try
           {
             await using var scope = _serviceScopeFactory.CreateAsyncScope();
-            // TODO: Pass cancellation token to handler
             await handler(de, scope.ServiceProvider, cancellationToken);
           }
 # pragma warning disable CA1031 // Do not catch general exception types
