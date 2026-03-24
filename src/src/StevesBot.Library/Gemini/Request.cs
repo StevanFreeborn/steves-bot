@@ -6,10 +6,22 @@ internal sealed record Request
   public Content[] Contents { get; init; } = [];
   public GenerationConfig GenerationConfig { get; init; } = new();
 
-  public static Request From(string text)
+  public static Request From(
+    string text,
+    string systemInstruction
+  )
   {
     return new Request()
     {
+      SystemInstruction = new()
+      {
+        Parts = [
+          new()
+          {
+            Text = systemInstruction,
+          },
+        ],
+      },
       Contents = [
         new()
         {
@@ -18,9 +30,9 @@ internal sealed record Request
             {
               Text = text,
             },
-          ]
+          ],
         },
-      ]
+      ],
     };
   }
 }

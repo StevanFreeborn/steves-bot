@@ -29,4 +29,30 @@ public sealed record DiscordMessage
   {
     return Mentions.Any(u => u.Id.Equals(userId, StringComparison.OrdinalIgnoreCase));
   }
+
+  public string GetThreadNameFromContent()
+  {
+    var content = Content;
+
+    foreach (var mention in Mentions)
+    {
+      var mentionText = $"<@{mention.Id}>";
+
+      content = content.Replace(
+        mentionText,
+        string.Empty,
+        StringComparison.OrdinalIgnoreCase
+      );
+    }
+
+    if (string.IsNullOrWhiteSpace(content))
+    {
+      return $"Thread for message {Id}";
+    }
+
+    const int maxNameLength = 100;
+    var nameEndIndex = Math.Min(content.Length, maxNameLength);
+
+    return content[..nameEndIndex];
+  }
 }

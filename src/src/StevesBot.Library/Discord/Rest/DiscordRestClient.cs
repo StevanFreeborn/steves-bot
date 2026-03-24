@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -43,7 +44,7 @@ public sealed class DiscordRestClient : IDiscordRestClient
       throw new DiscordRestClientException("Failed to get gateway URL.");
     }
 
-    var gatewayResponse = JsonSerializer.Deserialize<GatewayResponse>(responseContent, JsonOptions);
+    var gatewayResponse = Deserialize<GatewayResponse>(responseContent);
 
     if (gatewayResponse is null)
     {
@@ -52,6 +53,34 @@ public sealed class DiscordRestClient : IDiscordRestClient
     }
 
     return gatewayResponse.Url;
+  }
+
+  public async Task<DiscordChannel> CreateThreadFromMessageAsync(
+    string channelId,
+    string messageId,
+    CreateThreadFromMessageRequest request,
+    CancellationToken cancellationToken = default
+  )
+  {
+    var threadEndpoint = new Uri($"channels/{channelId}/messages/{messageId}/threads", UriKind.Relative);
+    var response = await _httpClient.PostAsJsonAsync(threadEndpoint, request, cancellationToken);
+    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+    if (response.IsSuccessStatusCode is false)
+    {
+      _logger.LogError("Failed to create thread: {StatusCode} - {Content}", response.StatusCode, responseContent);
+      throw new DiscordRestClientException("Failed to create thread.");
+    }
+
+    var discordChannel = Deserialize<DiscordChannel>(responseContent);
+
+    if (discordChannel is null)
+    {
+      _logger.LogError("Failed to deserialize thread create response: {StatusCode} - {Content}", response.StatusCode, responseContent);
+      throw new DiscordRestClientException("Failed to deserialize thread create response.");
+    }
+
+    return discordChannel;
   }
 
   public async Task<DiscordMessage> CreateMessageAsync(string channelId, CreateMessageRequest request, CancellationToken cancellationToken = default)
@@ -66,7 +95,7 @@ public sealed class DiscordRestClient : IDiscordRestClient
       throw new DiscordRestClientException("Failed to create message.");
     }
 
-    var discordMessage = JsonSerializer.Deserialize<DiscordMessage>(responseContent, JsonOptions);
+    var discordMessage = Deserialize<DiscordMessage>(responseContent);
 
     if (discordMessage is null)
     {
@@ -77,7 +106,7 @@ public sealed class DiscordRestClient : IDiscordRestClient
     return discordMessage;
   }
 
-  public async Task<DiscordUser> GetMeAsync(CancellationToken cancellationToken)
+  public async Task<DiscordUser> GetMeAsync(CancellationToken cancellationToken = default)
   {
     var meEndpoint = new Uri($"users/@me", UriKind.Relative);
     var response = await _httpClient.GetAsync(meEndpoint, cancellationToken);
@@ -89,7 +118,7 @@ public sealed class DiscordRestClient : IDiscordRestClient
       throw new DiscordRestClientException("Failed to create message.");
     }
 
-    var discordUser = JsonSerializer.Deserialize<DiscordUser>(responseContent, JsonOptions);
+    var discordUser = Deserialize<DiscordUser>(responseContent);
 
     if (discordUser is null)
     {
@@ -98,5 +127,63 @@ public sealed class DiscordRestClient : IDiscordRestClient
     }
 
     return discordUser;
+  }
+
+  public async Task StartTypingAsync(string channelId, CancellationToken cancellationToken = default)
+  {
+    var typingEndpoint = new Uri($"channels/{channelId}/typing", UriKind.Relative);
+    var response = await _httpClient.PostAsync(typingEndpoint, null, cancellationToken);
+    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+    if (response.StatusCode is not HttpStatusCode.NoContent)
+    {
+      _logger.LogError(
+        "Failed to start typing in channel {ChannelId}: {StatusCode} - {Content}",
+        channelId,
+        response.StatusCode,
+        responseContent
+      );
+
+      throw new DiscordRestClientException("Failed to start typing.");
+    }
+  }
+
+  public async Task<DiscordChannel> GetChannelAsync(string channelId, CancellationToken cancellationToken = default)
+  {
+    var threadEndpoint = new Uri($"channels/{channelId}", UriKind.Relative);
+    var response = await _httpClient.GetAsync(threadEndpoint, cancellationToken);
+    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+    if (response.IsSuccessStatusCode is false)
+    {
+      _logger.LogError("Failed to get thread: {StatusCode} - {Content}", response.StatusCode, responseContent);
+      throw new DiscordRestClientException("Failed to get thread.");
+    }
+
+    var discordChannel = Deserialize<DiscordChannel>(responseContent);
+
+    if (discordChannel is null)
+    {
+      _logger.LogError("Failed to deserialize channel response: {StatusCode} - {Content}", response.StatusCode, responseContent);
+      throw new DiscordRestClientException("Failed to deserialize thread create response.");
+    }
+
+    return discordChannel;
+  }
+
+  private T? Deserialize<T>(string json)
+  {
+    var v = default(T);
+
+    try
+    {
+      v = JsonSerializer.Deserialize<T>(json, JsonOptions);
+    }
+    catch (Exception e) when (e is JsonException)
+    {
+      _logger.LogError(e, "Failed to deserialize JSON: {JSON}", json);
+    }
+
+    return v;
   }
 }
