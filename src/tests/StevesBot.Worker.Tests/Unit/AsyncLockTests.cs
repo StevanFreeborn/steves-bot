@@ -43,7 +43,9 @@ public class AsyncLockTests
     var taskOne = FirstLockAction();
     var taskTwo = SecondLockAction();
 
+#pragma warning disable CA2027 // Cancel Task.Delay after Task.WhenAny completes
     await Task.WhenAll(taskOne, Task.WhenAny(taskTwo, Task.Delay(500)));
+#pragma warning restore CA2027 // Cancel Task.Delay after Task.WhenAny completes
 
     lockOneAcquired.Task.IsCompleted.Should().BeTrue();
     lockTwoAttempted.Task.IsCompleted.Should().BeTrue();
