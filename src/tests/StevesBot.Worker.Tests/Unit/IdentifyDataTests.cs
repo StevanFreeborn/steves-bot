@@ -1,5 +1,3 @@
-using StevesBot.Worker.Discord.Gateway.Events.Data;
-
 namespace StevesBot.Worker.Tests.Unit;
 
 public class IdentifyDataTests

@@ -70,6 +70,8 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
       await SetGatewayUrlAsync(gatewayUrl, cancellationToken);
     }
 
+    _webSocket?.Dispose();
+
     await SetWebSocketAsync(_webSocketFactory.Create(), cancellationToken);
     await ConnectWithGatewayUrlAsync(cancellationToken);
 
@@ -685,9 +687,10 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
         await _webSocket.ConnectAsync(uri, cancellationToken);
         connected = true;
       }
-      catch (Exception e) when (e is WebSocketException)
+      catch (Exception e)
       {
-        var currentDelay = (int)(delay.TotalMilliseconds * Math.Pow(2, attempts));
+        var calculatedDelay = delay.TotalMilliseconds * Math.Pow(2, attempts);
+        var currentDelay = (int)Math.Min(calculatedDelay, int.MaxValue);
 
         _logger.LogWarning(
           e,
@@ -700,6 +703,9 @@ internal sealed class DiscordGatewayClient : IDiscordGatewayClient
         await Task.Delay(currentDelay, cancellationToken);
 
         attempts++;
+
+        _webSocket.Dispose();
+        await SetWebSocketAsync(_webSocketFactory.Create(), cancellationToken);
       }
     }
   }
