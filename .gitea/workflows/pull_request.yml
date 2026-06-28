@@ -30,7 +30,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Install report generator
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+        run: |
+          dotnet tool install --tool-path ./.tools dotnet-reportgenerator-globaltool
+          echo "$PWD/.tools" >> "$GITHUB_PATH"
       - name: Run tests
         run: dotnet test src
       - name: Merge coverage reports
