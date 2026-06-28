@@ -38,7 +38,7 @@ jobs:
       - name: Merge coverage reports
         run: reportgenerator "-reports:src/tests/*/TestResults/*/coverage.cobertura.xml" "-reporttypes:Html;Cobertura" "-targetdir:src/tests/TestResults/Coverage"
       - name: Upload code coverage
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v3
         with:
           name: coverage-reports
           path: src/tests/TestResults/Coverage
