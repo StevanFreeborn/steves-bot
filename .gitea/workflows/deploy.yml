@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'src/**'
+      - '.editorconfig'
 jobs:
   build:
     name: Build Docker Images
@@ -26,10 +27,10 @@ jobs:
       - name: Build Docker image
         run: |
           WORKER_TAG=${{ secrets.DOCKERHUB_USERNAME }}/steves-bot:worker-${{ steps.version.outputs.version }}
-          docker build -f src/StevesBot.Worker.Dockerfile -t $WORKER_TAG src
+          docker build -f src/StevesBot.Worker.Dockerfile -t $WORKER_TAG .
           docker push $WORKER_TAG
           WEBHOOK_TAG=${{ secrets.DOCKERHUB_USERNAME }}/steves-bot:webhook-${{ steps.version.outputs.version }}
-          docker build -f src/StevesBot.Webhook.Dockerfile -t $WEBHOOK_TAG src
+          docker build -f src/StevesBot.Webhook.Dockerfile -t $WEBHOOK_TAG .
           docker push $WEBHOOK_TAG
   deploy:
     name: Deploy Docker Images

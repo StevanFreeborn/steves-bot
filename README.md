@@ -234,6 +234,13 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # ... runtime setup ...
 ```
 
+Images are built with the **repository root** as Docker build context so solution-wide configuration (including root-level analyzer/editorconfig rules) is available during build:
+
+```bash
+docker build -f src/StevesBot.Worker.Dockerfile -t steves-bot:worker .
+docker build -f src/StevesBot.Webhook.Dockerfile -t steves-bot:webhook .
+```
+
 ### Configuration for Production
 
 Use environment variables or configuration providers for production secrets.

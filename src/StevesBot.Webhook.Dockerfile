@@ -2,32 +2,29 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS base
 WORKDIR /app
 
 # solution level
-COPY *.sln ./
-COPY Directory.Build.props ./
+COPY src/StevesBot.sln src/
+COPY src/Directory.Build.props src/
 
 # src level
-COPY src/StevesBot.Library/*.csproj src/StevesBot.Library/
-COPY src/StevesBot.Worker/*.csproj src/StevesBot.Worker/
-COPY src/StevesBot.Webhook/*.csproj src/StevesBot.Webhook/
-COPY src/Directory.Build.props src/
-COPY src/Directory.Packages.props src/
+COPY src/src/StevesBot.Library/*.csproj src/src/StevesBot.Library/
+COPY src/src/StevesBot.Worker/*.csproj src/src/StevesBot.Worker/
+COPY src/src/StevesBot.Webhook/*.csproj src/src/StevesBot.Webhook/
+COPY src/src/Directory.Build.props src/src/
+COPY src/src/Directory.Packages.props src/src/
 
 # test level
-COPY tests/StevesBot.Library.Tests/*.csproj tests/StevesBot.Library.Tests/
-COPY tests/StevesBot.Worker.Tests/*.csproj tests/StevesBot.Worker.Tests/
-COPY tests/StevesBot.Webhook.Tests/*.csproj tests/StevesBot.Webhook.Tests/
-COPY tests/Directory.Build.props tests/
-COPY tests/Directory.Packages.props tests/
+COPY src/tests/StevesBot.Library.Tests/*.csproj src/tests/StevesBot.Library.Tests/
+COPY src/tests/StevesBot.Worker.Tests/*.csproj src/tests/StevesBot.Worker.Tests/
+COPY src/tests/StevesBot.Webhook.Tests/*.csproj src/tests/StevesBot.Webhook.Tests/
+COPY src/tests/Directory.Build.props src/tests/
+COPY src/tests/Directory.Packages.props src/tests/
 
-COPY ./src/StevesBot.Worker/StevesBot.Worker.csproj ./
-COPY ./Directory.Build.props ./
-
-RUN dotnet restore StevesBot.sln
+RUN dotnet restore src/StevesBot.sln
 
 COPY . .
 
 FROM base AS publish-stage
-RUN dotnet publish -c Release -o dist src/StevesBot.Webhook/StevesBot.Webhook.csproj
+RUN dotnet publish -c Release -o dist src/src/StevesBot.Webhook/StevesBot.Webhook.csproj
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
